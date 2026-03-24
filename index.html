@@ -2113,7 +2113,7 @@ function renderYajaStatusTable() {
         var _badge = '';
         if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(방과후)</span>';
         if (_isDorm)  _badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(기숙사)</span>';
-        var _rKey = cls+'-'+s.num;
+        var _rKey = cls+'|'+s.num;
         var _reason = (absentReasons[m]&&absentReasons[m][attendDate]&&absentReasons[m][attendDate][_rKey])||'';
         var _reasonTag = _reason
           ? '<span style="font-size:10px;color:#64748b;margin-left:4px;font-style:italic;white-space:nowrap;">📝 '+(_reason.length>10?_reason.substring(0,10)+'..':_reason)+'</span>'
@@ -2190,7 +2190,7 @@ function saveAbsentReason() {
   var t = _absentReasonTarget;
   var reason = document.getElementById('absent-reason-text').value.trim();
   if (!absentReasons[t.month][t.date]) absentReasons[t.month][t.date]={};
-  var _key = t.cls+'-'+t.num;
+  var _key = t.cls+'|'+t.num;
   if (reason) absentReasons[t.month][t.date][_key]=reason;
   else delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
@@ -2202,6 +2202,7 @@ function deleteAbsentReason() {
   if (!_absentReasonTarget) return;
   var t = _absentReasonTarget;
   var _key = t.cls+'-'+t.num;
+  var _key = t.cls+'|'+t.num;
   if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
