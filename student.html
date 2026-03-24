@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>1학년 야자·석식 신청</title>
+<!-- PWA -->
+<link rel="manifest" href="/student-manifest.json">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="야자신청">
+<link rel="apple-touch-icon" href="/icon.svg">
 <style>
   :root {
     --navy:#1e3a5f; --navy2:#2d5282; --gold:#f59e0b; --green:#16a34a;
@@ -670,6 +678,11 @@ function showToast(msg) {
   var t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
   setTimeout(function(){ t.classList.remove('show'); }, 3000);
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  });
 }
 </script>
 </body>
