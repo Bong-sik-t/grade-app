@@ -400,6 +400,19 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   .rate-bar-wrap{width:50px;}
 }
 
+/* ── 날짜 선택 패널 모바일 그리드 ── */
+@media(max-width:768px){
+  #attend-date-top{flex-wrap:wrap;gap:8px 6px;}
+  /* title + ‹ 버튼 → 첫 줄 / 날짜 버튼 → 둘째 줄 */
+  #attend-date-top > div:first-child{order:1;font-size:13px;}
+  #attend-date-top .attend-nav-btn{order:2;}
+  #attend-date-top .attend-nav-btn:last-of-type{order:3;}
+  #attend-date-btns{order:10;width:100%;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+  .attend-date-btn{min-width:0;width:100%;padding:5px 2px;font-size:11px;}
+  /* 액션 버튼 줄바꿈 정리 */
+  #attend-date-top ~ div .btn{font-size:11px;padding:6px 8px;}
+}
+
 @media(max-width:480px){
   /* ── 헤더 ── */
   .header-title{font-size:14px;}
@@ -412,11 +425,17 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   main{padding:10px 8px;}
   .section-title{font-size:16px;}
 
-  /* ── 달력 ── */
-  .cal-cell{min-height:46px;padding:3px 2px;}
-  .cal-ev{font-size:7.5px;}
+  /* ── 달력: 이벤트 숨기고 탭으로 확인 ── */
+  .cal-events{display:none;}
+  /* 이벤트 있는 날짜에 점 표시 */
+  .cal-cell[data-ev]:not([data-ev="0"]) .cal-day-num::after{
+    content:'';display:block;width:5px;height:5px;border-radius:50%;
+    background:#1e40af;margin:2px auto 0;
+  }
+  .cal-cell{min-height:46px;padding:3px 2px;cursor:pointer;}
   .cal-day-num{font-size:11px;width:22px;height:22px;}
   .cal-dow{font-size:11px;padding:6px 0;}
+  .cal-add-btn{display:none!important;}
 
   /* ── 버튼 그룹 wrap ── */
   .section-header > div{flex-wrap:wrap;}
@@ -425,11 +444,21 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   .sub-tab{padding:7px 10px;font-size:11px;}
 
   /* ── 날짜 버튼 ── */
-  .attend-date-btn{padding:4px 6px;font-size:10px;min-width:34px;}
+  #attend-date-btns{grid-template-columns:repeat(5,1fr);}
+  .attend-date-btn{font-size:10px;}
+
+  /* ── 출석 테이블: 컬럼 폭 압축으로 밀림 해결 ── */
+  .attend-master-table th,.attend-master-table td{padding:6px 4px;}
+  .attend-master-table th.th-p8,
+  .attend-master-table th.th-y1,
+  .attend-master-table th.th-y2{width:46px;font-size:10px;}
+  .attend-master-table th.th-cls{min-width:0;}
+  .attend-master-table td.td-num{width:22px;font-size:10px;}
+  .chk{width:24px;height:24px;font-size:11px;}
 
   /* ── 학생 모달 테이블 ── */
   .student-table{font-size:11px;}
-  .student-table th,.student-table td{padding:6px 6px;}
+  .student-table th,.student-table td{padding:6px 5px;}
   .period-check label{width:24px;height:24px;}
 }
 
@@ -526,11 +555,11 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 
     <!-- 날짜 선택 패널 -->
     <div class="attend-date-panel no-print">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      <div id="attend-date-top" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
         <div style="font-size:15px;font-weight:800;color:var(--navy);">📅 날짜 선택</div>
-        <button class="btn btn-sm" style="padding:4px 12px;font-size:18px;line-height:1;border-radius:8px;" onclick="moveAttendDate(-1)">‹</button>
+        <button class="btn btn-sm attend-nav-btn" style="padding:4px 12px;font-size:18px;line-height:1;border-radius:8px;" onclick="moveAttendDate(-1)">‹</button>
         <div style="display:flex;gap:6px;flex-wrap:wrap;" id="attend-date-btns"></div>
-        <button class="btn btn-sm" style="padding:4px 12px;font-size:18px;line-height:1;border-radius:8px;" onclick="moveAttendDate(1)">›</button>
+        <button class="btn btn-sm attend-nav-btn" style="padding:4px 12px;font-size:18px;line-height:1;border-radius:8px;" onclick="moveAttendDate(1)">›</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <div id="attend-selected-date" style="font-size:18px;font-weight:800;color:var(--navy);min-width:180px;"></div>
@@ -888,6 +917,18 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 </main>
 
 <!-- ══ MODALS ══ -->
+<!-- 달력 날짜 이벤트 모달 -->
+<div class="modal-overlay" id="modal-day-events">
+  <div class="modal" style="max-width:340px;">
+    <div style="font-size:16px;font-weight:800;color:#1e3a5f;margin-bottom:14px;" id="day-modal-title"></div>
+    <div id="day-modal-events"></div>
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm" id="day-modal-add-btn">+ 일정 추가</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('modal-day-events')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-schedule-add">
   <div class="modal">
     <div class="modal-title">📅 일정 추가</div>
@@ -1608,10 +1649,10 @@ function renderSchCal(){
     const evs=evMap[d]||[];
     const evHtml=evs.slice(0,3).map(e=>`<div class="cal-ev ${e.type}" onclick="delSchedule('${e.date}','${e.title}')" title="클릭하여 삭제">${e.title}</div>`).join('')
       +(evs.length>3?`<div style="font-size:10px;color:var(--g400)">+${evs.length-3}개</div>`:'');
-    html+=`<div class="cal-cell ${isToday?'today':''} ${isSun?'sun':''} ${isSat?'sat':''}">
+    html+=`<div class="cal-cell ${isToday?'today':''} ${isSun?'sun':''} ${isSat?'sat':''}" onclick="openDayModal('${ds}')" data-ev="${evs.length}">
       <div class="cal-day-num">${d}</div>
       <div class="cal-events">${evHtml}</div>
-      <button class="cal-add-btn no-print" onclick="openAddScheduleDate('${ds}')">+</button>
+      <button class="cal-add-btn no-print" onclick="event.stopPropagation();openAddScheduleDate('${ds}')">+</button>
     </div>`;
   }
   const rem=(7-(firstDay+daysInMonth)%7)%7;
@@ -1620,6 +1661,26 @@ function renderSchCal(){
 }
 function openAddSchedule(){document.getElementById('add-date').value='';openModal('modal-schedule-add');}
 function openAddScheduleDate(ds){document.getElementById('add-date').value=ds;openModal('modal-schedule-add');}
+function openDayModal(ds){
+  var parts=ds.split('-'), m=parseInt(parts[1]), d=parseInt(parts[2]);
+  var dow=new Date(2026,m-1,d).getDay();
+  var dowNames=['일','월','화','수','목','금','토'];
+  document.getElementById('day-modal-title').textContent=m+'월 '+d+'일 ('+dowNames[dow]+')';
+  var evs=scheduleData.filter(function(s){return s.date===ds;});
+  document.getElementById('day-modal-events').innerHTML=evs.length===0
+    ?'<div style="color:#94a3b8;font-size:13px;padding:8px 0;">등록된 일정이 없습니다.</div>'
+    :evs.map(function(e){
+      return '<div style="padding:9px 12px;border-radius:8px;margin-bottom:6px;font-size:13px;font-weight:700;'
+        +'background:'+(e.type==='grade'?'#fef9c3':'#dbeafe')+';color:'+(e.type==='grade'?'#854d0e':'#1e40af')
+        +';display:flex;justify-content:space-between;align-items:center;">'
+        +'<span>'+e.title+'</span>'
+        +'<button onclick="delSchedule(\''+e.date+'\',\''+e.title+'\');closeModal(\'modal-day-events\');" '
+        +'style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">×</button>'
+        +'</div>';
+    }).join('');
+  document.getElementById('day-modal-add-btn').onclick=function(){closeModal('modal-day-events');openAddScheduleDate(ds);};
+  openModal('modal-day-events');
+}
 function addSchedule(){
   const date=document.getElementById('add-date').value;
   const title=document.getElementById('add-title').value.trim();
