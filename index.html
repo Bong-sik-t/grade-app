@@ -2030,21 +2030,37 @@ function selectAttendDate(ds) {
 
 // 불참사유 실시간 동기화
 var _absentSyncTimer = null;
+var _absentSyncPauseUntil = 0;  // 로컬 저장 후 폴링 일시정지 타임스탬프
 function syncAbsentReasons(callback) {
+  if (Date.now() < _absentSyncPauseUntil) return;  // 저장 직후 3초간 폴링 스킵
   callApi('loadAbsentReasons')
     .then(function(r) {
       if (!r || !r.ok) return;
-      Object.keys(r.absentReasons||{}).forEach(function(m) {
+      var changed = false;
+      var incoming = r.absentReasons || {};
+      // 추가/변경 감지
+      Object.keys(incoming).forEach(function(m) {
         var mi = Number(m);
         if (!absentReasons[mi]) absentReasons[mi] = {};
-        Object.keys(r.absentReasons[m]||{}).forEach(function(dateStr) {
-          absentReasons[mi][dateStr] = r.absentReasons[m][dateStr];
+        Object.keys(incoming[m]||{}).forEach(function(dateStr) {
+          if (JSON.stringify(absentReasons[mi][dateStr]) !== JSON.stringify(incoming[m][dateStr])) {
+            absentReasons[mi][dateStr] = incoming[m][dateStr];
+            changed = true;
+          }
+        });
+        // 삭제 감지
+        Object.keys(absentReasons[mi]||{}).forEach(function(dateStr) {
+          if (!(incoming[m] && incoming[m][dateStr])) {
+            delete absentReasons[mi][dateStr];
+            changed = true;
+          }
         });
       });
-      renderYajaStatusTable();
+      // 변경된 경우에만 재렌더링 (깜빡임 방지)
+      if (changed) renderYajaStatusTable();
       if (callback) callback();
     })
-    .catch(function() { renderYajaStatusTable(); });
+    .catch(function() {});
 }
 function startAbsentPolling() {
   stopAbsentPolling();
@@ -2223,17 +2239,18 @@ function saveAbsentReason() {
   else delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
+  _absentSyncPauseUntil = Date.now() + 5000;
   scheduleSave();
   showToast('✅ '+t.name+' 사유 저장 완료');
 }
 function deleteAbsentReason() {
   if (!_absentReasonTarget) return;
   var t = _absentReasonTarget;
-  var _key = t.cls+'-'+t.num;
   var _key = t.cls+'|'+t.num;
   if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
+  _absentSyncPauseUntil = Date.now() + 5000;
   scheduleSave();
   showToast('🗑 사유 삭제 완료');
 }
