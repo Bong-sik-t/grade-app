@@ -402,15 +402,16 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 
 /* ── 날짜 선택 패널 모바일 그리드 ── */
 @media(max-width:768px){
-  #attend-date-top{flex-wrap:wrap;gap:8px 6px;}
-  /* title + ‹ 버튼 → 첫 줄 / 날짜 버튼 → 둘째 줄 */
-  #attend-date-top > div:first-child{order:1;font-size:13px;}
-  #attend-date-top .attend-nav-btn{order:2;}
-  #attend-date-top .attend-nav-btn:last-of-type{order:3;}
-  #attend-date-btns{order:10;width:100%;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
-  .attend-date-btn{min-width:0;width:100%;padding:5px 2px;font-size:11px;}
-  /* 액션 버튼 줄바꿈 정리 */
-  #attend-date-top ~ div .btn{font-size:11px;padding:6px 8px;}
+  #attend-date-top{flex-wrap:wrap;align-items:center;gap:6px;}
+  #attend-date-top > div:first-child{flex:1;}
+  /* 날짜 버튼 5열 그리드 — 인라인 style 덮어쓰기 */
+  #attend-date-btns{
+    order:10;flex:0 0 100%;
+    display:grid!important;
+    grid-template-columns:repeat(5,1fr)!important;
+    gap:4px!important;
+  }
+  .attend-date-btn{min-width:0;width:100%;padding:6px 2px;font-size:11px;}
 }
 
 @media(max-width:480px){
