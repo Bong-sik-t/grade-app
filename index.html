@@ -1612,7 +1612,7 @@ function switchSubTab(id,el){
   document.querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   el.classList.add('active');
-  if(id==='yaja-status') { initAttendDate(); startAbsentPolling(); }
+  if(id==='yaja-status') { initAttendDate(); renderYajaStatusTable(); startAbsentPolling(); }
   else { stopAbsentPolling(); }
   if(id==='yaja-rate') renderRateTable();
   if(id==='yaja-roster') renderYajaRoster();
