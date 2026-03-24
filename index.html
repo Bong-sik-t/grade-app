@@ -357,23 +357,41 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   .month-nav-label{font-size:16px;}
   .month-qbtn{padding:4px 8px;font-size:11px;}
 
-  /* ── 달력 ── */
-  .cal-cell{min-height:58px;padding:4px 3px;}
-  .cal-ev{font-size:8px;padding:1px 3px;}
+  /* ── 달력: 헤더-바디 너비 강제 일치 ── */
+  .cal-wrap{width:100%;box-sizing:border-box;overflow:hidden;}
+  .cal-head{width:100%;box-sizing:border-box;display:grid;grid-template-columns:repeat(7,1fr);}
+  .cal-body{width:100%;box-sizing:border-box;display:grid;grid-template-columns:repeat(7,1fr);}
+  .cal-cell{min-height:58px;padding:4px 2px;box-sizing:border-box;min-width:0;}
+  .cal-dow{padding:7px 0;font-size:11px;min-width:0;overflow:hidden;}
+  .cal-ev{font-size:8px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-day-num{font-size:12px;}
 
   /* ── 서브탭 ── */
   .sub-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .sub-tab{padding:8px 14px;font-size:12px;}
 
-  /* ── 테이블 ── */
+  /* ── 야자 출석 테이블 ── */
   .attend-master-table{font-size:12px;}
   .attend-master-table th,.attend-master-table td{padding:8px 6px;}
 
-  /* ── 모달 ── */
+  /* ── 일반 모달 (아래서 올라오는 시트) ── */
   .modal-overlay{align-items:flex-end!important;padding:0!important;}
-  .modal{border-radius:16px 16px 0 0!important;width:100%!important;max-width:100%!important;padding:20px 16px!important;max-height:90vh;overflow-y:auto;}
-  .student-modal{border-radius:16px 16px 0 0!important;max-width:100%!important;max-height:90vh;overflow-y:auto;}
+  .modal{border-radius:16px 16px 0 0!important;width:100%!important;max-width:100%!important;
+    padding:20px 16px!important;max-height:90vh;overflow-y:auto;}
+
+  /* ── 학생 입력 모달 (아래서 올라오는 시트) ── */
+  .student-modal-overlay{padding:0!important;align-items:flex-end!important;overflow-y:hidden!important;}
+  .student-modal{border-radius:16px 16px 0 0!important;width:100%!important;max-width:100%!important;
+    max-height:93vh!important;overflow-y:auto!important;margin:0!important;}
+  .student-modal-header{padding:14px 16px!important;border-radius:16px 16px 0 0!important;flex-wrap:nowrap!important;}
+  .student-modal-title{font-size:14px!important;}
+  .student-modal-body{padding:12px 10px!important;overflow-x:hidden;}
+  /* 학생 테이블 가로 스크롤 허용 */
+  .student-modal-body .student-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .student-table{font-size:12px;min-width:280px;}
+  .student-table th{padding:8px 8px;}
+  .student-table td{padding:7px 8px;}
+  .student-footer{padding:10px 12px!important;flex-wrap:wrap;gap:6px!important;}
 
   /* ── 날짜 버튼 (야자) ── */
   .attend-date-btn{padding:5px 8px;font-size:11px;min-width:38px;}
@@ -383,7 +401,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 }
 
 @media(max-width:480px){
-  /* ── 헤더 더 축소 ── */
+  /* ── 헤더 ── */
   .header-title{font-size:14px;}
   .header-date{display:none;}
 
@@ -397,8 +415,8 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   /* ── 달력 ── */
   .cal-cell{min-height:46px;padding:3px 2px;}
   .cal-ev{font-size:7.5px;}
-  .cal-day-num{font-size:11px;}
-  .cal-dow{font-size:11px;padding:7px 0;}
+  .cal-day-num{font-size:11px;width:22px;height:22px;}
+  .cal-dow{font-size:11px;padding:6px 0;}
 
   /* ── 버튼 그룹 wrap ── */
   .section-header > div{flex-wrap:wrap;}
@@ -408,6 +426,11 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 
   /* ── 날짜 버튼 ── */
   .attend-date-btn{padding:4px 6px;font-size:10px;min-width:34px;}
+
+  /* ── 학생 모달 테이블 ── */
+  .student-table{font-size:11px;}
+  .student-table th,.student-table td{padding:6px 6px;}
+  .period-check label{width:24px;height:24px;}
 }
 
 </style>
@@ -899,13 +922,13 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
         <div class="legend-item"><div class="legend-dot dot-y1"></div>야자 1교시</div>
         <div class="legend-item"><div class="legend-dot dot-y2"></div>야자 2교시</div>
       </div>
-      <div style="overflow-x:auto;">
+      <div class="student-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table class="student-table">
           <thead><tr>
-            <th style="text-align:left;min-width:100px">학생</th>
-            <th style="min-width:80px">8교시</th>
-            <th style="min-width:80px">야자 1교시</th>
-            <th style="min-width:80px">야자 2교시</th>
+            <th style="text-align:left;min-width:90px">학생</th>
+            <th style="min-width:56px">8교시</th>
+            <th style="min-width:70px">야자 1교시</th>
+            <th style="min-width:70px">야자 2교시</th>
           </tr></thead>
           <tbody id="student-tbody"></tbody>
         </table>
@@ -1786,8 +1809,8 @@ function renderStudentTable(cls){
     var y1c = dayData.y1 ? 'checked' : '';
     var y2c = dayData.y2 ? 'checked' : '';
     var badge = '';
-    if (isAfter) badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(방과후)</span>';
-    if (isDorm)  badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(기숙사)</span>';
+    if (isAfter) badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;">(방과후)</span>';
+    if (isDorm)  badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;">(기숙사)</span>';
     rows += '<tr>'
       + '<td><span class="num-cell">'+s.num+'</span>'+s.name+badge+'</td>'
       + '<td><div class="period-check p8-check">'
