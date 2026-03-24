@@ -2025,7 +2025,9 @@ function buildAttendDateBtns() {
 
 function selectAttendDate(ds) {
   attendDate = ds;
-  syncAbsentReasons();   // 날짜 선택할 때마다 최신 사유 가져오기
+  buildAttendDateBtns();
+  renderYajaStatusTable();
+  syncAbsentReasons();
 }
 
 // 불참사유 실시간 동기화
