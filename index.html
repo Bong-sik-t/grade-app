@@ -1915,8 +1915,13 @@ function renderYajaStatusTable() {
           if (!d[p]) return '<td><div class="chk na">—</div></td>';
           return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')"></div></td>';
         };
+        var _isAfter = hasAfterSchool(cls, s.num, _attDow);
+        var _isDorm  = isDormStudent(cls, s.num);
+        var _badge = '';
+        if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(방과후)</span>';
+        if (_isDorm)  _badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(기숙사)</span>';
         bodyHtml += '<tr class="'+(allOk?'all-confirmed':'')+'">'
-          + '<td class="td-num">'+s.num+'</td><td class="td-name">'+s.name+'</td>'
+          + '<td class="td-num">'+s.num+'</td><td class="td-name">'+s.name+_badge+'</td>'
           + mkChk('p8') + mkChk('y1') + mkChk('y2')
           + '</tr>';
       });
