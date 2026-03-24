@@ -930,6 +930,27 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   </div>
 </div>
 
+<!-- 불참석 사유 모달 -->
+<div class="modal-overlay" id="modal-absent-reason">
+  <div class="modal" style="max-width:380px;width:92%;padding:0;border-radius:16px;overflow:hidden;">
+    <div style="background:var(--navy);color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:800;font-size:15px;">🗒 불참석 사유</span>
+      <button onclick="closeModal('modal-absent-reason')" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div style="padding:20px;">
+      <div id="absent-reason-info" style="font-size:13px;color:var(--g500);margin-bottom:14px;line-height:1.6;"></div>
+      <textarea id="absent-reason-text" rows="4"
+        style="width:100%;border:1.5px solid var(--g200);border-radius:10px;padding:10px 12px;font-size:14px;resize:none;box-sizing:border-box;font-family:inherit;outline:none;"
+        placeholder="불참석 사유를 입력하세요&#10;예) 방과후 수업, 기숙사 행사, 조기귀가, 병원 등"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveAbsentReason()">💾 저장</button>
+        <button class="btn btn-outline" style="flex:1;" onclick="closeModal('modal-absent-reason')">취소</button>
+      </div>
+      <button onclick="deleteAbsentReason()" style="width:100%;margin-top:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:700;cursor:pointer;">🗑 사유 삭제</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-schedule-add">
   <div class="modal">
     <div class="modal-title">📅 일정 추가</div>
@@ -1312,6 +1333,11 @@ function isDormStudent(cls, num) {
 // dateStr 예: '2026-03-05'
 const attendCheck={};
 MONTHS.forEach(m=>{ attendCheck[m]={}; });
+
+// 불참석 사유: absentReasons[month][dateStr][cls+'-'+num] = reason
+const absentReasons={};
+MONTHS.forEach(m=>{ absentReasons[m]={}; });
+var _absentReasonTarget=null;
 
 function getAttendDay(m, dateStr){
   if(!attendCheck[m][dateStr]){
@@ -2085,10 +2111,16 @@ function renderYajaStatusTable() {
         var _isAfter = hasAfterSchool(cls, s.num, _attDow);
         var _isDorm  = isDormStudent(cls, s.num);
         var _badge = '';
-        if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(방과후)</span>';
-        if (_isDorm)  _badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;">(기숙사)</span>';
+        if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(방과후)</span>';
+        if (_isDorm)  _badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(기숙사)</span>';
+        var _rKey = cls+'-'+s.num;
+        var _reason = (absentReasons[m]&&absentReasons[m][attendDate]&&absentReasons[m][attendDate][_rKey])||'';
+        var _reasonTag = _reason
+          ? '<span style="font-size:10px;color:#64748b;margin-left:4px;font-style:italic;white-space:nowrap;">📝 '+(_reason.length>10?_reason.substring(0,10)+'..':_reason)+'</span>'
+          : '';
         bodyHtml += '<tr class="'+(allOk?'all-confirmed':'')+'">'
-          + '<td class="td-num">'+s.num+'</td><td class="td-name">'+s.name+_badge+'</td>'
+          + '<td class="td-num">'+s.num+'</td>'
+          + '<td class="td-name" onclick="openAbsentReason(\''+cls+'\','+s.num+',\''+s.name+'\')" style="cursor:pointer;" title="클릭하여 불참석 사유 입력">'+s.name+_badge+_reasonTag+'</td>'
           + mkChk('p8') + mkChk('y1') + mkChk('y2')
           + '</tr>';
       });
@@ -2135,6 +2167,44 @@ function clearTodayAttend() {
   delete attendCheck[yajaMonth][attendDate];
   renderYajaStatusTable();
   showToast('🗑 '+attendDate+' 초기화 완료');
+}
+
+// ──────────────────────────────────────
+// 불참석 사유
+// ──────────────────────────────────────
+function openAbsentReason(cls, num, name) {
+  _absentReasonTarget = {cls:cls, num:num, name:name, date:attendDate, month:yajaMonth};
+  var _parts = attendDate.split('-');
+  var _dow = ['일','월','화','수','목','금','토'][new Date(+_parts[0],+_parts[1]-1,+_parts[2]).getDay()];
+  var _key = cls+'-'+num;
+  var _existing = (absentReasons[yajaMonth]&&absentReasons[yajaMonth][attendDate]&&absentReasons[yajaMonth][attendDate][_key])||'';
+  document.getElementById('absent-reason-info').innerHTML =
+    '<b style="font-size:15px;color:#1e3a5f;">'+cls+'반 '+num+'번 '+name+'</b><br>'
+    +'<span style="color:var(--g400);">'+parseInt(_parts[1])+'월 '+parseInt(_parts[2])+'일 ('+_dow+') 불참석 사유</span>';
+  document.getElementById('absent-reason-text').value = _existing;
+  openModal('modal-absent-reason');
+  setTimeout(function(){ document.getElementById('absent-reason-text').focus(); }, 200);
+}
+function saveAbsentReason() {
+  if (!_absentReasonTarget) return;
+  var t = _absentReasonTarget;
+  var reason = document.getElementById('absent-reason-text').value.trim();
+  if (!absentReasons[t.month][t.date]) absentReasons[t.month][t.date]={};
+  var _key = t.cls+'-'+t.num;
+  if (reason) absentReasons[t.month][t.date][_key]=reason;
+  else delete absentReasons[t.month][t.date][_key];
+  closeModal('modal-absent-reason');
+  renderYajaStatusTable();
+  showToast('✅ '+t.name+' 사유 저장 완료');
+}
+function deleteAbsentReason() {
+  if (!_absentReasonTarget) return;
+  var t = _absentReasonTarget;
+  var _key = t.cls+'-'+t.num;
+  if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
+  closeModal('modal-absent-reason');
+  renderYajaStatusTable();
+  showToast('🗑 사유 삭제 완료');
 }
 
 // ══════════════════════════════════════════
