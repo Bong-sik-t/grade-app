@@ -3758,11 +3758,12 @@ function clearApplicationPeriod() {
 function downloadDormTemplate() {
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet([
-    ['반','번호','이름'],
-    ['1-1', 1, '홍길동'],
-    ['1-2', 5, '김철수']
+    ['학번','이름'],
+    [1123, '홍길동'],
+    [1205, '김철수'],
+    [1310, '이영희']
   ]);
-  ws['!cols'] = [{wch:8},{wch:8},{wch:12}];
+  ws['!cols'] = [{wch:10},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws, '기숙사명단');
   XLSX.writeFile(wb, '기숙사_학생_예시양식.xlsx');
 }
@@ -3781,12 +3782,18 @@ function uploadDormFile(input) {
       var newDorm = {};
       CLASSES.forEach(function(c){ newDorm[c] = []; });
       var count = 0;
-      for (var r = 1; r < rows.length; r++) {
-        var cls  = String(rows[r][0]||'').trim();
-        var num  = Number(rows[r][1]||0);
-        if (!cls || !num) continue;
+      // 헤더 행 스킵 (첫 번째 행이 '학번' 텍스트인 경우)
+      var startRow = (String(rows[0]&&rows[0][0]||'').trim() === '학번') ? 1 : 0;
+      for (var r = startRow; r < rows.length; r++) {
+        var idStr = String(rows[r][0]||'').trim().replace(/\s/g,'');
+        if (!idStr || idStr.length < 4) continue;
+        // 형식: 1반번호 → 예) 1123 = 1학년 1반 23번
+        var clsNum = parseInt(idStr[1]);          // 반 (두 번째 자리)
+        var stuNum = parseInt(idStr.slice(2));    // 번호 (세 번째 자리 이후)
+        if (!clsNum || !stuNum) continue;
+        var cls = '1-' + clsNum;
         if (!newDorm[cls]) continue;
-        if (newDorm[cls].indexOf(num) === -1) { newDorm[cls].push(num); count++; }
+        if (newDorm[cls].indexOf(stuNum) === -1) { newDorm[cls].push(stuNum); count++; }
       }
       dormStudents = newDorm;
       statusEl.style.color = '#16a34a';
