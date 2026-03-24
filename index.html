@@ -1612,7 +1612,8 @@ function switchSubTab(id,el){
   document.querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   el.classList.add('active');
-  if(id==='yaja-status') { initAttendDate(); renderYajaStatusTable(); }
+  if(id==='yaja-status') { initAttendDate(); startAbsentPolling(); }
+  else { stopAbsentPolling(); }
   if(id==='yaja-rate') renderRateTable();
   if(id==='yaja-roster') renderYajaRoster();
   if(id==='sv-count') { svCountMonth=svMonth; renderSvCountTable(); }
@@ -2024,7 +2025,34 @@ function buildAttendDateBtns() {
 
 function selectAttendDate(ds) {
   attendDate = ds;
-  renderYajaStatusTable();
+  syncAbsentReasons();   // 날짜 선택할 때마다 최신 사유 가져오기
+}
+
+// 불참사유 실시간 동기화
+var _absentSyncTimer = null;
+function syncAbsentReasons(callback) {
+  callApi('loadAbsentReasons')
+    .then(function(r) {
+      if (!r || !r.ok) return;
+      Object.keys(r.absentReasons||{}).forEach(function(m) {
+        var mi = Number(m);
+        if (!absentReasons[mi]) absentReasons[mi] = {};
+        Object.keys(r.absentReasons[m]||{}).forEach(function(dateStr) {
+          absentReasons[mi][dateStr] = r.absentReasons[m][dateStr];
+        });
+      });
+      renderYajaStatusTable();
+      if (callback) callback();
+    })
+    .catch(function() { renderYajaStatusTable(); });
+}
+function startAbsentPolling() {
+  stopAbsentPolling();
+  syncAbsentReasons();   // 탭 진입 시 즉시 1회
+  _absentSyncTimer = setInterval(syncAbsentReasons, 30000);  // 30초마다
+}
+function stopAbsentPolling() {
+  if (_absentSyncTimer) { clearInterval(_absentSyncTimer); _absentSyncTimer = null; }
 }
 
 function renderYajaStatusTable() {
@@ -4098,7 +4126,7 @@ var GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx8fxzQHkE3j2_MjnexOa
 // GET: loadAllData / getApplicationStatus
 // POST(text/plain): saveAllData / saveAppPeriodDirect
 function callApi(action, args) {
-  var readOnly = (action === 'loadAllData' || action === 'getApplicationStatus');
+  var readOnly = (action === 'loadAllData' || action === 'getApplicationStatus' || action === 'loadAbsentReasons');
   if (readOnly) {
     return fetch(GAS_API_URL + '?action=' + encodeURIComponent(action))
       .then(function(res) { return res.json(); });
