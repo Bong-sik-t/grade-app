@@ -2195,6 +2195,7 @@ function saveAbsentReason() {
   else delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
+  scheduleSave();
   showToast('✅ '+t.name+' 사유 저장 완료');
 }
 function deleteAbsentReason() {
@@ -2204,6 +2205,7 @@ function deleteAbsentReason() {
   if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
+  scheduleSave();
   showToast('🗑 사유 삭제 완료');
 }
 
@@ -4114,7 +4116,8 @@ function collectSaveData() {
     yajaData: yajaData, seoksiData: seoksiData, attendCheck: attendCheck, svData: svData,
     svTeachersByMonth: svTeachersByMonth,
     studentRoster: studentRoster, scheduleData: scheduleData, jumperData: jumperData, appPeriod: appPeriod, volunteerData: volunteerData,
-    dormStudents: dormStudents
+    dormStudents: dormStudents,
+    absentReasons: absentReasons
   });
 }
 
@@ -4785,6 +4788,16 @@ function loadFromSheet() {
         if (r.dormStudents) {
           CLASSES.forEach(function(cls) {
             if (Array.isArray(r.dormStudents[cls])) dormStudents[cls] = r.dormStudents[cls].map(Number);
+          });
+        }
+        // 불참석 사유 복원
+        if (r.absentReasons) {
+          Object.keys(r.absentReasons).forEach(function(m) {
+            var mi = Number(m);
+            if (!absentReasons[mi]) absentReasons[mi] = {};
+            Object.keys(r.absentReasons[m]||{}).forEach(function(dateStr) {
+              absentReasons[mi][dateStr] = r.absentReasons[m][dateStr];
+            });
           });
         }
         // 신청 기간 복원
