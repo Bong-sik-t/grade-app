@@ -2065,13 +2065,14 @@ function selectAttendDate(ds) {
 var _absentSyncTimer = null;
 var _absentSyncPauseUntil = 0;  // 로컬 저장 후 폴링 일시정지 타임스탬프
 function syncAbsentReasons(callback) {
-  if (Date.now() < _absentSyncPauseUntil) return;  // 저장 직후 3초간 폴링 스킵
+  if (Date.now() < _absentSyncPauseUntil) return;  // 저장 직후 5초간 폴링 스킵
   callApi('loadAbsentReasons')
     .then(function(r) {
       if (!r || !r.ok) return;
       var changed = false;
+
+      // ── 불참사유 동기화 ──
       var incoming = r.absentReasons || {};
-      // 추가/변경 감지
       Object.keys(incoming).forEach(function(m) {
         var mi = Number(m);
         if (!absentReasons[mi]) absentReasons[mi] = {};
@@ -2081,7 +2082,6 @@ function syncAbsentReasons(callback) {
             changed = true;
           }
         });
-        // 삭제 감지
         Object.keys(absentReasons[mi]||{}).forEach(function(dateStr) {
           if (!(incoming[m] && incoming[m][dateStr])) {
             delete absentReasons[mi][dateStr];
@@ -2089,7 +2089,20 @@ function syncAbsentReasons(callback) {
           }
         });
       });
-      // 변경된 경우에만 재렌더링 (깜빡임 방지)
+
+      // ── 기숙사 학생 동기화 ──
+      if (r.dormStudents) {
+        var incomingDorm = r.dormStudents;
+        CLASSES.forEach(function(cls) {
+          var newNums = (incomingDorm[cls]||[]).map(Number).sort().join(',');
+          var oldNums = (dormStudents[cls]||[]).map(Number).sort().join(',');
+          if (newNums !== oldNums) {
+            dormStudents[cls] = (incomingDorm[cls]||[]).map(Number);
+            changed = true;
+          }
+        });
+      }
+
       if (changed) renderYajaStatusTable();
       if (callback) callback();
     })
@@ -4117,6 +4130,7 @@ function uploadDormFile(input) {
       statusEl.style.color = '#16a34a';
       statusEl.textContent = '✅ ' + count + '명 기숙사 학생 로드 완료 — 모든 요일 8교시 자동 적용됨';
       renderYajaGrid();
+      renderYajaStatusTable();
       scheduleSave();
     } catch(err) {
       statusEl.style.color = '#dc2626';

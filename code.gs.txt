@@ -17,7 +17,7 @@ function doGet(e) {
     var result;
     if      (action === 'loadAllData')            result = loadAllData();
     else if (action === 'getApplicationStatus')  result = getApplicationStatus();
-    else if (action === 'loadAbsentReasons')     result = {ok:true, absentReasons: loadAbsentReasons()};
+    else if (action === 'loadAbsentReasons')     result = {ok:true, absentReasons: loadAbsentReasons(), dormStudents: loadDormStudents()};
     else result = {ok: false, error: 'Unknown action: ' + action};
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
