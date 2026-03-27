@@ -1361,6 +1361,49 @@ let svSort='name';
 
 
 // ══════════════════════════════════════════
+// ── 학생 데이터 동기화 헬퍼 ─────────────────────────
+// 특정 반에 학생 추가 (CLASS_STUDENTS + 데이터 배열 동기화)
+function _addStudentToClass(cls, num, name) {
+  if (CLASS_STUDENTS[cls].find(function(s){ return s.num===num && s.name===name; })) return;
+  CLASS_STUDENTS[cls].push({ num: num, name: name });
+  CLASS_STUDENTS[cls].sort(function(a,b){ return a.num-b.num; });
+  var idx = CLASS_STUDENTS[cls].findIndex(function(s){ return s.num===num && s.name===name; });
+  MONTHS.forEach(function(m) {
+    var newYaja = {};
+    DOW_KEYS.forEach(function(k){ newYaja[k] = {p8:false, y1:false, y2:false}; });
+    yajaData[m][cls].splice(idx, 0, newYaja);
+    var newSeoksi = {};
+    DOW_KEYS.forEach(function(k){ newSeoksi[k] = false; });
+    seoksiData[m][cls].splice(idx, 0, newSeoksi);
+    Object.keys(attendCheck[m]).forEach(function(ds) {
+      if (attendCheck[m][ds][cls]) {
+        attendCheck[m][ds][cls].p8.splice(idx, 0, false);
+        attendCheck[m][ds][cls].y1.splice(idx, 0, false);
+        attendCheck[m][ds][cls].y2.splice(idx, 0, false);
+      }
+    });
+  });
+}
+
+// 특정 반에서 학생 제거 (CLASS_STUDENTS + 데이터 배열 동기화)
+function _removeStudentFromClass(cls, num, name) {
+  var idx = CLASS_STUDENTS[cls].findIndex(function(s){ return s.num===num && s.name===name; });
+  if (idx === -1) return;
+  CLASS_STUDENTS[cls].splice(idx, 1);
+  MONTHS.forEach(function(m) {
+    if (yajaData[m][cls]) yajaData[m][cls].splice(idx, 1);
+    if (seoksiData[m][cls]) seoksiData[m][cls].splice(idx, 1);
+    Object.keys(attendCheck[m]).forEach(function(ds) {
+      if (attendCheck[m][ds][cls]) {
+        attendCheck[m][ds][cls].p8.splice(idx, 1);
+        attendCheck[m][ds][cls].y1.splice(idx, 1);
+        attendCheck[m][ds][cls].y2.splice(idx, 1);
+      }
+    });
+  });
+}
+// ─────────────────────────────────────────────────────
+
 // 학생 관리 (전입·전출·자퇴·유예)
 // ══════════════════════════════════════════
 // studentRoster: CLASS_STUDENTS를 기반으로 초기화
@@ -1500,19 +1543,7 @@ function confirmAddStudent() {
   const id = cls + '-' + num + '-' + Date.now();
   studentRoster.push({ id, cls, num, name, status: type, note });
 
-  // CLASS_STUDENTS에도 추가 (야자·석식에 반영)
-  if (!CLASS_STUDENTS[cls].find(function(s){ return s.num===num && s.name===name; })) {
-    CLASS_STUDENTS[cls].push({ num, name });
-    CLASS_STUDENTS[cls].sort(function(a,b){ return a.num-b.num; });
-    // yajaData, seoksiData, attendCheck 초기화 추가
-    MONTHS.forEach(function(m) {
-      yajaData[m][cls].push({ p8:false, y1:false, y2:false });
-      seoksiData[m][cls].push(false);
-      attendCheck[m][cls].p8.push(false);
-      attendCheck[m][cls].y1.push(false);
-      attendCheck[m][cls].y2.push(false);
-    });
-  }
+  _addStudentToClass(cls, num, name);
 
   closeModal('modal-add-student');
   renderRosterTable();
@@ -1550,13 +1581,14 @@ function confirmChangeStatus() {
   s.status = newStatus;
   s.note   = newNote;
 
-  // 반/번호 변경 시
-  if (newCls && newCls !== s.cls) {
-    s.cls = newCls;
-    s.id  = newCls + '-' + s.num + '-' + Date.now();
-  }
-  if (newNum && newNum !== s.num) {
-    s.num = newNum;
+  // 반/번호 변경 시 CLASS_STUDENTS + 데이터 배열 동기화
+  var clsChanged = newCls && newCls !== s.cls;
+  var numChanged = newNum && newNum !== s.num;
+  if (clsChanged || numChanged) {
+    _removeStudentFromClass(s.cls, s.num, s.name);
+    if (clsChanged) { s.cls = newCls; s.id = newCls + '-' + s.num + '-' + Date.now(); }
+    if (numChanged) s.num = newNum;
+    _addStudentToClass(s.cls, s.num, s.name);
   }
 
   closeModal('modal-change-status');
@@ -1572,8 +1604,7 @@ function confirmDeleteStudent() {
   if (!confirm(s.name + ' 학생을 명단에서 완전히 삭제하시겠습니까?\n(야자·석식 신청 데이터도 함께 삭제됩니다)')) return;
 
   studentRoster = studentRoster.filter(function(x){ return x.id!==editStudentId; });
-  // CLASS_STUDENTS에서도 제거
-  CLASS_STUDENTS[s.cls] = CLASS_STUDENTS[s.cls].filter(function(x){ return !(x.num===s.num && x.name===s.name); });
+  _removeStudentFromClass(s.cls, s.num, s.name);
 
   closeModal('modal-change-status');
   renderRosterTable();

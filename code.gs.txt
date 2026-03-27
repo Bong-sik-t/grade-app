@@ -1,0 +1,769 @@
+// =====================================================
+// 2026학년도 1학년 앱 - Google Apps Script
+// =====================================================
+
+var SS_ID = '1BAnfFGbnk-yr8DZcNowRHAFR07AqsUz6xbPyegdLq5M';
+
+
+
+// (신청 기간 설정은 교사용 앱 설정 탭에서 관리)
+
+function doGet(e) {
+  var page   = (e && e.parameter && e.parameter.page)   ? e.parameter.page   : 'index';
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : null;
+
+  // JSON API 모드 (Vercel 프론트엔드에서 GET으로 호출)
+  if (action) {
+    var result;
+    if      (action === 'loadAllData')            result = loadAllData();
+    else if (action === 'getApplicationStatus')  result = getApplicationStatus();
+    else if (action === 'loadAbsentReasons')     result = {ok:true, absentReasons: loadAbsentReasons()};
+    else result = {ok: false, error: 'Unknown action: ' + action};
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (page === 'student') {
+    return HtmlService.createHtmlOutputFromFile('student')
+      .setTitle('1학년 야자.석식 신청')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+  }
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('2026학년도 1학년 앱')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// -- 공통: 시트 가져오기 (없으면 생성) --
+function getOrCreateSheet(name) {
+  var ss = SpreadsheetApp.openById(SS_ID);
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+
+// -- 공통: 헤더 제외 데이터 읽기 --
+function safeGetValues(sh) {
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow()-1, sh.getLastColumn()).getDisplayValues();
+}
+
+// =====================================================
+// 저장 (클라이언트 -> 스프레드시트)
+// =====================================================
+function saveAllData(jsonStr) {
+  try {
+    var data = JSON.parse(jsonStr);
+    if (data.yajaData)      saveYajaData(data.yajaData);
+    if (data.seoksiData)    saveSeoksiData(data.seoksiData);
+    if (data.attendCheck)   saveAttendData(data.attendCheck);
+    if (data.svData)        saveSvData(data.svData);
+    if (data.svTeachersByMonth) saveSvTeachersByMonth(data.svTeachersByMonth);
+    else if (data.svTeachers) { var svT=data.svTeachers; saveSvTeachersByMonth({3: svT.weekday||[]}); } // 구버전 호환
+    if (data.studentRoster) saveRoster(data.studentRoster);
+    if (data.scheduleData)  saveSchedule(data.scheduleData);
+    if (data.jumperData)    saveJumperData(data.jumperData);
+    if (data.appPeriod)     saveAppPeriod(data.appPeriod);
+    if (data.volunteerData) saveVolunteerData(data.volunteerData);
+    if (data.dormStudents)  saveDormStudents(data.dormStudents);
+    if (data.absentReasons) saveAbsentReasons(data.absentReasons);
+    return {ok: true};
+  } catch(e) {
+    Logger.log('saveAllData error: ' + e.message);
+    return {ok: false, error: e.message};
+  }
+}
+
+// =====================================================
+// 불러오기 (스프레드시트 -> 클라이언트)
+// =====================================================
+function loadAllData() {
+  try {
+    return {
+      ok:            true,
+      yajaData:      loadYajaData(),
+      seoksiData:    loadSeoksiData(),
+      attendCheck:   loadAttendData(),
+      svData:        loadSvData(),
+      svTeachersByMonth: loadSvTeachersByMonth(),
+      studentRoster: loadRoster(),
+      scheduleData:  loadSchedule(),
+      jumperData:    loadJumperData(),
+      appPeriod:     loadAppPeriod(),
+      volunteerData: loadVolunteerData(),
+      dormStudents:  loadDormStudents(),
+      absentReasons: loadAbsentReasons()
+    };
+  } catch(e) {
+    Logger.log('loadAllData error: ' + e.message);
+    return {ok: false, error: e.message};
+  }
+}
+
+// =====================================================
+// 야자 신청
+// =====================================================
+function saveYajaData(yajaData) {
+  var sh = getOrCreateSheet('야자신청');
+  sh.clearContents();
+  var DOW_KEYS = ['mon','tue','wed','thu','fri'];
+  var rows = [['month','cls','idx','dow','p8','y1','y2']];
+  Object.keys(yajaData).forEach(function(m) {
+    Object.keys(yajaData[m]).forEach(function(cls) {
+      yajaData[m][cls].forEach(function(studentData, i) {
+        if (!studentData) return;
+        DOW_KEYS.forEach(function(dow) {
+          var d = studentData[dow];
+          if (d && (d.p8 || d.y1 || d.y2))
+            rows.push([Number(m), cls, i, dow, d.p8?1:0, d.y1?1:0, d.y2?1:0]);
+        });
+      });
+    });
+  });
+  if (rows.length > 1) sh.getRange(1, 1, rows.length, 7).setValues(rows);
+  else sh.getRange(1, 1, 1, 7).setValues([['month','cls','idx','dow','p8','y1','y2']]);
+}
+
+function loadYajaData() {
+  var sh = getOrCreateSheet('야자신청');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 7).getDisplayValues();
+  rows.forEach(function(r) {
+    var m=String(r[0]), cls=String(r[1]), idx=Number(r[2]), dow=String(r[3]);
+    if (!m||!cls||!dow) return;
+    if (!result[m]) result[m] = {};
+    if (!result[m][cls]) result[m][cls] = {};
+    if (!result[m][cls][idx]) result[m][cls][idx] = {};
+    result[m][cls][idx][dow] = {p8:r[4]==='1'||r[4]===1, y1:r[5]==='1'||r[5]===1, y2:r[6]==='1'||r[6]===1};
+  });
+  return result;
+}
+
+// =====================================================
+// 석식 신청
+// =====================================================
+function saveSeoksiData(seoksiData) {
+  var sh = getOrCreateSheet('석식신청');
+  sh.clearContents();
+  var DOW_KEYS = ['mon','tue','wed','thu','fri'];
+  var rows = [['month','cls','idx','dow','applied']];
+  Object.keys(seoksiData).forEach(function(m) {
+    Object.keys(seoksiData[m]).forEach(function(cls) {
+      seoksiData[m][cls].forEach(function(studentData, i) {
+        if (!studentData) return;
+        DOW_KEYS.forEach(function(dow) {
+          if (studentData[dow])
+            rows.push([Number(m), cls, i, dow, 1]);
+        });
+      });
+    });
+  });
+  if (rows.length > 1) sh.getRange(1, 1, rows.length, 5).setValues(rows);
+  else sh.getRange(1, 1, 1, 5).setValues([['month','cls','idx','dow','applied']]);
+}
+
+function loadSeoksiData() {
+  var sh = getOrCreateSheet('석식신청');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, sh.getLastColumn()).getDisplayValues();
+  rows.forEach(function(r) {
+    var m=String(r[0]), cls=String(r[1]), idx=Number(r[2]);
+    if (!m||!cls) return;
+    if (!result[m]) result[m] = {};
+    if (!result[m][cls]) result[m][cls] = {};
+    if (r.length >= 5 && r[3] && r[3] !== 'applied') {
+      // 요일별: month, cls, idx, dow, applied
+      var dow = String(r[3]);
+      if (!result[m][cls][idx]) result[m][cls][idx] = {};
+      result[m][cls][idx][dow] = (r[4]==='1'||r[4]===1||r[4]===true);
+    } else {
+      // 구버전 호환
+      result[m][cls][idx] = !!r[3];
+    }
+  });
+  return result;
+}
+
+// =====================================================
+// 출석 확인
+// =====================================================
+function saveAttendData(attendCheck) {
+  var sh = getOrCreateSheet('출석확인');
+  sh.clearContents();
+  var rows = [['month','date','cls','idx','period']];
+  Object.keys(attendCheck).forEach(function(m) {
+    Object.keys(attendCheck[m]).forEach(function(ds) {
+      Object.keys(attendCheck[m][ds]).forEach(function(cls) {
+        ['p8','y1','y2'].forEach(function(p) {
+          var arr = attendCheck[m][ds][cls][p];
+          if (!arr) return;
+          Object.keys(arr).forEach(function(idx) {
+            if (arr[idx]) rows.push([Number(m), ds, cls, Number(idx), p]);
+          });
+        });
+      });
+    });
+  });
+  if (rows.length > 1) sh.getRange(1, 1, rows.length, 5).setValues(rows);
+  else sh.getRange(1, 1, 1, 5).setValues([['month','date','cls','idx','period']]);
+}
+
+function loadAttendData() {
+  var sh = getOrCreateSheet('출석확인');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 5).getDisplayValues();
+  rows.forEach(function(r) {
+    var m=String(r[0]), ds=String(r[1]), cls=String(r[2]), idx=Number(r[3]), p=String(r[4]);
+    if (!m||!ds||!cls||!p) return;
+    if (!result[m]) result[m] = {};
+    if (!result[m][ds]) result[m][ds] = {};
+    if (!result[m][ds][cls]) result[m][ds][cls] = {p8:{},y1:{},y2:{}};
+    result[m][ds][cls][p][idx] = true;
+  });
+  return result;
+}
+
+// =====================================================
+// 감독표
+// =====================================================
+function saveSvData(svData) {
+  var sh = getOrCreateSheet('감독표');
+  sh.clearContents();
+  var rows = [['month','key','data']];
+  Object.keys(svData).forEach(function(m) {
+    Object.keys(svData[m]).forEach(function(key) {
+      rows.push([Number(m), String(key), JSON.stringify(svData[m][key])]);
+    });
+  });
+  if (rows.length > 1) sh.getRange(1, 1, rows.length, 3).setValues(rows);
+  else sh.getRange(1, 1, 1, 3).setValues([['month','key','data']]);
+}
+
+function loadSvData() {
+  var sh = getOrCreateSheet('감독표');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 3).getDisplayValues();
+  rows.forEach(function(r) {
+    var m=String(r[0]), key=String(r[1]), raw=String(r[2]);
+    if (!m||!key) return;
+    if (!result[m]) result[m] = {};
+    try {
+      result[m][key] = JSON.parse(raw);
+    } catch(e) {
+      // 구버전 호환: 단순 문자열(이름)
+      result[m][key] = {name: raw, isFri: false, skip: false};
+    }
+  });
+  return result;
+}
+
+function saveSvTeachersByMonth(byMonth) {
+  var sh = getOrCreateSheet('감독순번');
+  sh.clearContents();
+  var rows = [['month','teacher']];
+  Object.keys(byMonth).forEach(function(m) {
+    var list = byMonth[m];
+    if (!Array.isArray(list)) return;
+    list.forEach(function(name) {
+      if (name && name.trim()) rows.push([String(m), String(name)]);
+    });
+  });
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+}
+
+function loadSvTeachersByMonth() {
+  var sh = getOrCreateSheet('감독순번');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
+  rows.forEach(function(r) {
+    var m = Number(r[0]);
+    var name = String(r[1]||'').trim();
+    if (!m || !name) return;
+    if (!result[m]) result[m] = [];
+    result[m].push(name);
+  });
+  return result;
+}
+
+function saveSvTeachers(weekday, friday) {
+  var sh = getOrCreateSheet('감독순번');
+  sh.clearContents();
+  var max = Math.max(weekday.length, friday.length, 1);
+  var rows = [['weekday','friday']];
+  for (var i=0; i<max; i++)
+    rows.push([weekday[i]||'', friday[i]||'']);
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+}
+
+function loadSvTeachers() {
+  var sh = getOrCreateSheet('감독순번');
+  var result = {weekday:[], friday:[]};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
+  rows.forEach(function(r) {
+    if (r[0]) result.weekday.push(String(r[0]));
+    if (r[1]) result.friday.push(String(r[1]));
+  });
+  return result;
+}
+
+// =====================================================
+// 학생 명단
+// =====================================================
+function saveRoster(roster) {
+  var sh = getOrCreateSheet('학생명단');
+  sh.clearContents();
+  var rows = [['id','cls','num','name','status','note']];
+  roster.forEach(function(s) {
+    rows.push([String(s.id||''), String(s.cls||''), Number(s.num||0), String(s.name||''), String(s.status||'active'), String(s.note||'')]);
+  });
+  sh.getRange(1, 1, rows.length, 6).setValues(rows);
+}
+
+function loadRoster() {
+  var sh = getOrCreateSheet('학생명단');
+  if (sh.getLastRow() < 2) return [];
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, sh.getLastColumn()).getDisplayValues();
+  return rows.filter(function(r){ return r[0]; }).map(function(r) {
+    var cls = String(r[1]);
+    if (!cls.match(/^\d+-\d+$/) && r[0]) {
+      var m2 = String(r[0]).match(/^(\d+-\d+)/);
+      if (m2) cls = m2[1];
+    }
+    return {id:String(r[0]), cls:cls, num:Number(r[2]), name:String(r[3]), status:String(r[4]), note:String(r[5]||'')};
+  });
+}
+
+// =====================================================
+// 학사일정
+// =====================================================
+function saveSchedule(scheduleData) {
+  var sh = getOrCreateSheet('학사일정');
+  sh.clearContents();
+  var rows = [['date','title','type','target']];
+  scheduleData.forEach(function(s) {
+    rows.push([String(s.date||''), String(s.title||''), String(s.type||''), String(s.target||'')]);
+  });
+  sh.getRange(1, 1, rows.length, 4).setValues(rows);
+}
+
+function loadSchedule() {
+  var sh = getOrCreateSheet('학사일정');
+  if (sh.getLastRow() < 2) return [];
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, sh.getLastColumn()).getDisplayValues();
+  return rows.filter(function(r){ return r[0]; }).map(function(r) {
+    return {date:String(r[0]), title:String(r[1]), type:String(r[2]), target:String(r[3]||'')};
+  });
+}
+
+// =====================================================
+// 점퍼 사이즈
+// =====================================================
+function saveJumperData(jumperData) {
+  var sh = getOrCreateSheet('점퍼사이즈');
+  sh.clearContents();
+  var rows = [['cls','idx','size']];
+  Object.keys(jumperData).forEach(function(cls) {
+    var arr = jumperData[cls];
+    for (var i=0; i<arr.length; i++) {
+      if (arr[i]) rows.push([String(cls), Number(i), String(arr[i])]);
+    }
+  });
+  if (rows.length > 1) sh.getRange(1, 1, rows.length, 3).setValues(rows);
+  else sh.getRange(1, 1, 1, 3).setValues([['cls','idx','size']]);
+}
+
+function loadJumperData() {
+  var sh = getOrCreateSheet('점퍼사이즈');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 3).getDisplayValues();
+  rows.forEach(function(r) {
+    if (!r[0] || !r[2]) return;
+    var cls = String(r[0]);
+    var idx = Number(r[1]);
+    var sz  = String(r[2]);
+    if (!result[cls]) result[cls] = {};
+    result[cls][idx] = sz;
+  });
+  return result;
+}
+
+// =====================================================
+// 봉사활동
+// =====================================================
+function saveVolunteerData(volunteerData) {
+  var sh = getOrCreateSheet('봉사활동');
+  sh.clearContents();
+  var rows = [['cls', 'data_json']];
+  Object.keys(volunteerData).forEach(function(cls) {
+    rows.push([cls, JSON.stringify(volunteerData[cls])]);
+  });
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+}
+
+function loadVolunteerData() {
+  var sh = getOrCreateSheet('봉사활동');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
+  rows.forEach(function(r) {
+    if (!r[0] || !r[1]) return;
+    try {
+      result[r[0]] = JSON.parse(r[1]);
+    } catch(e) {
+      Logger.log('loadVolunteerData parse error for cls=' + r[0] + ': ' + e.message);
+    }
+  });
+  return result;
+}
+
+// =====================================================
+// 학생 직접 신청 저장
+// =====================================================
+function saveStudentApplication(jsonStr) {
+  try {
+    var d = JSON.parse(jsonStr);
+    var m   = Number(d.month);
+    var cls = String(d.cls);
+    var idx = Number(d.idx);
+    var DOW_KEYS = ['mon','tue','wed','thu','fri'];
+
+    var shY = getOrCreateSheet('야자신청');
+    var shS = getOrCreateSheet('석식신청');
+
+    if (shY.getLastRow() === 0) shY.appendRow(['month','cls','idx','dow','p8','y1','y2']);
+    if (shS.getLastRow() === 0) shS.appendRow(['month','cls','idx','dow','applied']);
+
+    DOW_KEYS.forEach(function(dow) {
+      var yaja   = (d.yajaByDow && d.yajaByDow[dow]) || {p8:false,y1:false,y2:false};
+      var seoksi = (d.seoksiByDow && d.seoksiByDow[dow]) || false;
+
+      var existY = findRowDow(shY, m, cls, idx, dow);
+      var yajaRow = [m, cls, idx, dow, yaja.p8?1:0, yaja.y1?1:0, yaja.y2?1:0];
+      if (existY > 0) shY.getRange(existY, 1, 1, 7).setValues([yajaRow]);
+      else shY.appendRow(yajaRow);
+
+      var existS = findRowDow(shS, m, cls, idx, dow);
+      var seoksiRow = [m, cls, idx, dow, seoksi?1:0];
+      if (existS > 0) shS.getRange(existS, 1, 1, 5).setValues([seoksiRow]);
+      else shS.appendRow(seoksiRow);
+    });
+
+    return {ok: true};
+  } catch(e) {
+    Logger.log('saveStudentApplication error: ' + e.message);
+    return {ok: false, error: e.message};
+  }
+}
+
+function findRowDow(sh, m, cls, idx, dow) {
+  if (sh.getLastRow() < 2) return -1;
+  var cols = sh.getLastColumn();
+  var vals = sh.getRange(2, 1, sh.getLastRow()-1, cols).getValues();
+  for (var i=0; i<vals.length; i++) {
+    if (Number(vals[i][0])===m && String(vals[i][1])===cls && Number(vals[i][2])===idx && String(vals[i][3])===dow)
+      return i + 2;
+  }
+  return -1;
+}
+
+function findRow(sh, m, cls, idx) {
+  if (sh.getLastRow() < 2) return -1;
+  var vals = sh.getRange(2, 1, sh.getLastRow()-1, 3).getValues();
+  for (var i=0; i<vals.length; i++) {
+    if (Number(vals[i][0])===m && String(vals[i][1])===cls && Number(vals[i][2])===idx)
+      return i + 2;
+  }
+  return -1;
+}
+
+// =====================================================
+// 학생 신청 기간
+// =====================================================
+function saveAppPeriod(period) {
+  var sh = getOrCreateSheet('설정');
+  if (sh.getLastRow() === 0) sh.appendRow(['key','value']);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sh.getRange(2,1,lastRow-1,2).getValues();
+    for (var i=0; i<rows.length; i++) {
+      if (rows[i][0] === 'appPeriod') {
+        sh.getRange(i+2,2).setValue(JSON.stringify(period));
+        SpreadsheetApp.flush();
+        return {ok:true};
+      }
+    }
+  }
+  sh.appendRow(['appPeriod', JSON.stringify(period)]);
+  SpreadsheetApp.flush();
+  return {ok:true};
+}
+
+// 클라이언트에서 직접 호출하는 전용 함수
+function saveAppPeriodDirect(start, end) {
+  try {
+    var period = {start: start||'', end: end||''};
+    return saveAppPeriod(period);
+  } catch(e) {
+    return {ok:false, error:e.message};
+  }
+}
+
+function loadAppPeriod() {
+  var sh = getOrCreateSheet('설정');
+  if (sh.getLastRow() < 2) return {start:'',end:''};
+  var rows = sh.getRange(2,1,sh.getLastRow()-1,2).getValues();
+  for (var i=0; i<rows.length; i++) {
+    if (rows[i][0] === 'appPeriod') {
+      try { return JSON.parse(rows[i][1]); } catch(e) {}
+    }
+  }
+  return {start:'',end:''};
+}
+
+function getApplicationStatus() {
+  var period = loadAppPeriod();
+  var s = period.start || '', e = period.end || '';
+  if (!s && !e) return {open:true, start:s, end:e};
+  var now = new Date();
+  var today = now.getFullYear()+'-'
+    +String(now.getMonth()+1).padStart(2,'0')+'-'
+    +String(now.getDate()).padStart(2,'0');
+  var open = (!s || today >= s) && (!e || today <= e);
+  return {open:open, start:s, end:e};
+}
+
+// =====================================================
+// 기숙사 학생
+// =====================================================
+function saveDormStudents(dormStudents) {
+  var sh = getOrCreateSheet('기숙사학생');
+  sh.clearContents();
+  var rows = [['cls','num']];
+  Object.keys(dormStudents).forEach(function(cls) {
+    var nums = dormStudents[cls];
+    if (!Array.isArray(nums)) return;
+    nums.forEach(function(num) {
+      rows.push([String(cls), Number(num)]);
+    });
+  });
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+}
+
+function loadDormStudents() {
+  var sh = getOrCreateSheet('기숙사학생');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
+  rows.forEach(function(r) {
+    var cls = String(r[0]||'').trim();
+    var num = Number(r[1]||0);
+    if (!cls || !num) return;
+    if (!result[cls]) result[cls] = [];
+    result[cls].push(num);
+  });
+  return result;
+}
+
+// =====================================================
+// 불참석 사유
+// =====================================================
+function saveAbsentReasons(data) {
+  var sh = getOrCreateSheet('불참사유');
+  sh.clearContents();
+  var rows = [['month','dateStr','key','reason']];
+  Object.keys(data).forEach(function(m) {
+    Object.keys(data[m]||{}).forEach(function(dateStr) {
+      Object.keys(data[m][dateStr]||{}).forEach(function(key) {
+        var reason = data[m][dateStr][key];
+        if (reason) rows.push([m, dateStr, key, reason]);
+      });
+    });
+  });
+  if (rows.length > 1) {
+    // key 컬럼(3번째)을 텍스트 형식으로 강제 지정 (날짜 자동변환 방지)
+    sh.getRange(2, 3, rows.length - 1, 1).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, 4).setValues(rows);
+  }
+}
+
+function loadAbsentReasons() {
+  var sh = getOrCreateSheet('불참사유');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 4).getDisplayValues();
+  rows.forEach(function(r) {
+    var m      = String(r[0]||'').trim();
+    var dateStr= String(r[1]||'').trim();
+    var key    = String(r[2]||'').trim();
+    var reason = String(r[3]||'').trim();
+    if (!m || !dateStr || !key || !reason) return;
+    if (!result[m]) result[m] = {};
+    if (!result[m][dateStr]) result[m][dateStr] = {};
+    result[m][dateStr][key] = reason;
+  });
+  return result;
+}
+
+// =====================================================
+// REST API — Vercel 배포용 (POST 엔드포인트)
+// =====================================================
+// 자동 이메일 발송 (매일 오전 8시)
+// =====================================================
+var EMAIL_TO = 'kyhs2505000@naver.com';
+var DOW_MAP_EMAIL  = {1:'mon', 2:'tue', 3:'wed', 4:'thu', 5:'fri'};
+var DOW_KR_EMAIL   = {1:'월',  2:'화',  3:'수',  4:'목',  5:'금'};
+
+function getPrevSchoolDay_() {
+  var today = new Date();
+  var day   = today.getDay();            // 0=일,1=월,...,5=금,6=토
+  var offset = (day === 1) ? 3 : 1;     // 월요일이면 3일 전(금요일)
+  var d = new Date(today);
+  d.setDate(today.getDate() - offset);
+  return d;
+}
+
+function toDateStr_(d) {
+  var mm = ('0'+(d.getMonth()+1)).slice(-2);
+  var dd = ('0'+d.getDate()).slice(-2);
+  return d.getFullYear()+'-'+mm+'-'+dd;
+}
+
+function sendDailyAttendanceEmail() {
+  var today = new Date();
+  if (today.getDay()===0 || today.getDay()===6) return; // 주말 제외
+
+  var prev    = getPrevSchoolDay_();
+  var dateStr = toDateStr_(prev);
+  var month   = String(prev.getMonth()+1);
+  var dow     = DOW_MAP_EMAIL[prev.getDay()];
+  var dowKr   = DOW_KR_EMAIL[prev.getDay()];
+  var moNum   = prev.getMonth()+1;
+  var dayNum  = prev.getDate();
+
+  var allData     = loadAllData();
+  var yajaData    = allData.yajaData     || {};
+  var attendCheck = allData.attendCheck  || {};
+  var roster      = allData.studentRoster|| {};
+  var dormData    = allData.dormStudents || {};
+  var reasons     = ((allData.absentReasons||{})[month]||{})[dateStr] || {};
+
+  var monthYaja   = yajaData[month]                            || {};
+  var monthCheck  = (attendCheck[month]||{})[dateStr]          || {};
+
+  var classes = Object.keys(roster).sort();
+  var total   = {p8:{app:0,con:0}, y1:{app:0,con:0}, y2:{app:0,con:0}};
+  var byClass = [], unconfDetails = [];
+
+  classes.forEach(function(cls) {
+    var students = roster[cls]        || [];
+    var clsYaja  = monthYaja[cls]     || [];
+    var clsChk   = monthCheck[cls]    || {p8:{}, y1:{}, y2:{}};
+    var dormNums = (dormData[cls]||[]).map(Number);
+    var stat     = {cls:cls, p8:{app:0,con:0}, y1:{app:0,con:0}, y2:{app:0,con:0}};
+    var unconf   = [];
+
+    students.forEach(function(s, idx) {
+      var d      = (clsYaja[idx]&&clsYaja[idx][dow]) || {};
+      var isDorm = dormNums.indexOf(Number(s.num)) !== -1;
+      var appP8  = !!(d.p8 || isDorm);
+      var appY1  = !!d.y1;
+      var appY2  = !!d.y2;
+
+      if (appP8) {
+        stat.p8.app++;
+        if (clsChk.p8 && clsChk.p8[idx]) stat.p8.con++;
+        else {
+          var key    = cls+'|'+s.num;
+          var reason = reasons[key] || '';
+          var tag    = isDorm ? ' [기숙사]' : '';
+          unconf.push(s.name + tag + (reason ? ' ('+reason+')' : ''));
+        }
+      }
+      if (appY1) { stat.y1.app++; if (clsChk.y1&&clsChk.y1[idx]) stat.y1.con++; }
+      if (appY2) { stat.y2.app++; if (clsChk.y2&&clsChk.y2[idx]) stat.y2.con++; }
+    });
+
+    total.p8.app += stat.p8.app; total.p8.con += stat.p8.con;
+    total.y1.app += stat.y1.app; total.y1.con += stat.y1.con;
+    total.y2.app += stat.y2.app; total.y2.con += stat.y2.con;
+    byClass.push(stat);
+    if (unconf.length) unconfDetails.push({cls:cls, names:unconf});
+  });
+
+  var subject = '['+moNum+'월 '+dayNum+'일 ('+dowKr+'요일) 야자 출석 현황] 경남고등학교 1학년';
+  var L = [];
+
+  L.push('안녕하세요. 경남고등학교 1학년 야자 출석 현황입니다.\n');
+  L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  L.push('■ '+moNum+'월 '+dayNum+'일 ('+dowKr+'요일) 전체 현황');
+  L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  L.push('🟣 8교시   신청 '+total.p8.app+'명 / 확인 '+total.p8.con+'명 / 미확인 '+(total.p8.app-total.p8.con)+'명');
+  L.push('🟢 야자1   신청 '+total.y1.app+'명 / 확인 '+total.y1.con+'명 / 미확인 '+(total.y1.app-total.y1.con)+'명');
+  L.push('🔵 야자2   신청 '+total.y2.app+'명 / 확인 '+total.y2.con+'명 / 미확인 '+(total.y2.app-total.y2.con)+'명');
+
+  L.push('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  L.push('■ 반별 상세 현황');
+  L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  byClass.forEach(function(c) {
+    if (!c.p8.app && !c.y1.app && !c.y2.app) return;
+    L.push('\n['+c.cls+'반]');
+    if (c.p8.app) L.push('  8교시 : 신청 '+c.p8.app+'명 / 확인 '+c.p8.con+'명 / 미확인 '+(c.p8.app-c.p8.con)+'명');
+    if (c.y1.app) L.push('  야자1 : 신청 '+c.y1.app+'명 / 확인 '+c.y1.con+'명 / 미확인 '+(c.y1.app-c.y1.con)+'명');
+    if (c.y2.app) L.push('  야자2 : 신청 '+c.y2.app+'명 / 확인 '+c.y2.con+'명 / 미확인 '+(c.y2.app-c.y2.con)+'명');
+  });
+
+  L.push('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  if (!unconfDetails.length) {
+    L.push('✅ 8교시 전원 출석 확인 완료');
+  } else {
+    L.push('■ 8교시 미확인 학생 ('+(total.p8.app-total.p8.con)+'명)');
+    L.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    unconfDetails.forEach(function(c) {
+      L.push(c.cls+'반 ('+c.names.length+'명) : '+c.names.join(', '));
+    });
+  }
+
+  L.push('\n─────────────────────────────────────');
+  L.push('경남고등학교 1학년 야자 관리 시스템 자동 발송');
+  L.push('발송 시각: '+new Date().toLocaleString('ko-KR'));
+
+  GmailApp.sendEmail(EMAIL_TO, subject, L.join('\n'));
+  Logger.log('[자동발송] '+dateStr+' 출석 현황 이메일 발송 완료');
+}
+
+// ▶ GAS에서 한 번만 실행하면 트리거 등록 완료
+function createDailyTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'sendDailyAttendanceEmail') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('sendDailyAttendanceEmail')
+    .timeBased().everyDays(1).atHour(8).create();
+  Logger.log('✅ 트리거 등록 완료 — 매일 오전 8시 자동 발송');
+}
+
+// =====================================================
+function doPost(e) {
+  try {
+    var body   = JSON.parse(e.postData.contents);
+    var action = body.action;
+    var args   = body.args || [];
+    var result;
+
+    if      (action === 'saveAllData')            result = saveAllData(args[0]);
+    else if (action === 'saveAppPeriodDirect')    result = saveAppPeriodDirect(args[0], args[1]);
+    else if (action === 'saveStudentApplication') result = saveStudentApplication(args[0]);
+    else result = {ok: false, error: 'Unknown action: ' + action};
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
