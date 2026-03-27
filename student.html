@@ -388,12 +388,37 @@ var curStep   = 1;
 var selDow = {};
 DOW_KEYS.forEach(function(k){ selDow[k] = {yaja: 'none', seoksi: false}; });
 
+// 학생 명단을 studentRoster 기준으로 CLASS_STUDENTS 동기화
+var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
+function syncRosterToClassStudents(studentRoster) {
+  if (!studentRoster || !studentRoster.length) return;
+  // 전입 등 추가된 학생 반영
+  studentRoster.forEach(function(s) {
+    if (!CLASS_STUDENTS[s.cls]) return;
+    if (!CLASS_STUDENTS[s.cls].find(function(x){ return x.num===s.num&&x.name===s.name; })) {
+      CLASS_STUDENTS[s.cls].push({ num: s.num, name: s.name });
+      CLASS_STUDENTS[s.cls].sort(function(a,b){ return a.num-b.num; });
+    }
+  });
+  // 전출·자퇴 등 비활성 학생 제거
+  CLASSES.forEach(function(cls) {
+    CLASS_STUDENTS[cls] = CLASS_STUDENTS[cls].filter(function(x) {
+      var entry = studentRoster.find(function(s){ return s.cls===cls&&s.num===x.num&&s.name===x.name; });
+      // studentRoster에 없으면 원래 명단(원적 학생) → 유지
+      // studentRoster에 있는데 비활성이면 제거
+      return !entry || STATUS_ACTIVE_SET.has(entry.status);
+    });
+  });
+}
+
 // ── 초기화 ──
 window.addEventListener('load', function() {
   showLoading('확인 중...');
   callApi('getApplicationStatus')
     .then(function(status) {
       hideLoading();
+      // studentRoster 동기화
+      if (status && status.studentRoster) syncRosterToClassStudents(status.studentRoster);
       if (!status || !status.open) {
         // 신청 기간 외
         var msg = '';

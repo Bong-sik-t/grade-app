@@ -529,13 +529,12 @@ function loadAppPeriod() {
 function getApplicationStatus() {
   var period = loadAppPeriod();
   var s = period.start || '', e = period.end || '';
-  if (!s && !e) return {open:true, start:s, end:e};
   var now = new Date();
   var today = now.getFullYear()+'-'
     +String(now.getMonth()+1).padStart(2,'0')+'-'
     +String(now.getDate()).padStart(2,'0');
-  var open = (!s || today >= s) && (!e || today <= e);
-  return {open:open, start:s, end:e};
+  var open = (!s && !e) ? true : ((!s || today >= s) && (!e || today <= e));
+  return {open:open, start:s, end:e, studentRoster: loadRoster()};
 }
 
 // =====================================================
