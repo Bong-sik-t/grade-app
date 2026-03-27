@@ -4127,6 +4127,7 @@ function uploadDormFile(input) {
         if (newDorm[cls].indexOf(stuNum) === -1) { newDorm[cls].push(stuNum); count++; }
       }
       dormStudents = newDorm;
+      _absentSyncPauseUntil = Date.now() + 8000; // 8초간 폴링 덮어씌움 방지
       statusEl.style.color = '#16a34a';
       statusEl.textContent = '✅ ' + count + '명 기숙사 학생 로드 완료 — 모든 요일 8교시 자동 적용됨';
       renderYajaGrid();
