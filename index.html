@@ -2169,9 +2169,9 @@ function renderYajaStatusTable() {
     var yaja = yajaData[m][cls];
     var clsAtt = att[cls];
     var _attDow = attendDateToDow(attendDate);
-    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return _d&&(_d.p8||_d.y1||_d.y2); });
+    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormStudent(cls,s.num)||hasAfterSchool(cls,s.num,_attDow); });
     var cc = {
-      p8: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].p8;}).length, ok: clsAtt.p8.filter(Boolean).length},
+      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormStudent(cls,s.num)||hasAfterSchool(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
       y1: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y1;}).length, ok: clsAtt.y1.filter(Boolean).length},
       y2: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y2;}).length, ok: clsAtt.y2.filter(Boolean).length}
     };
@@ -2192,14 +2192,16 @@ function renderYajaStatusTable() {
         if (rosterEntry && !STATUS_ACTIVE_SET.has(rosterEntry.status)) return;
         var _dd = yaja[i]&&yaja[i][_attDow] ? yaja[i][_attDow] : {p8:false,y1:false,y2:false};
         var d = _dd;
-        if (!d.p8 && !d.y1 && !d.y2) return;
-        var allOk = (!d.p8||clsAtt.p8[i]) && (!d.y1||clsAtt.y1[i]) && (!d.y2||clsAtt.y2[i]);
-        var mkChk = function(p) {
-          if (!d[p]) return '<td><div class="chk na">—</div></td>';
-          return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')"></div></td>';
-        };
         var _isAfter = hasAfterSchool(cls, s.num, _attDow);
         var _isDorm  = isDormStudent(cls, s.num);
+        var _autoP8  = _isAfter || _isDorm;
+        if (!d.p8 && !d.y1 && !d.y2 && !_autoP8) return;
+        var allOk = (!(d.p8||_autoP8)||clsAtt.p8[i]) && (!d.y1||clsAtt.y1[i]) && (!d.y2||clsAtt.y2[i]);
+        var mkChk = function(p) {
+          var hasApp = d[p] || (p==='p8' && _autoP8);
+          if (!hasApp) return '<td><div class="chk na">—</div></td>';
+          return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')"></div></td>';
+        };
         var _badge = '';
         if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(방과후)</span>';
         if (_isDorm)  _badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(기숙사)</span>';
