@@ -730,9 +730,12 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
       </div>
       <div style="display:grid;grid-template-columns:1fr;gap:20px;max-width:360px;">
         <div>
-          <label style="font-size:12px;font-weight:800;color:var(--g600);display:block;margin-bottom:6px;">📅 순번 (한 줄에 한 명 · 월~금 이어서 배정)</label>
+          <label id="sv-weekday-label" style="font-size:12px;font-weight:800;color:var(--g600);display:block;margin-bottom:6px;">📅 순번 (한 줄에 한 명 · 월~금 이어서 배정)</label>
           <textarea class="teacher-list-input" id="sv-weekday-list" placeholder="예:&#10;김○○&#10;이○○&#10;박○○" oninput="svSaveMonthOrder()"></textarea>
-          <textarea id="sv-friday-list" style="display:none;"></textarea>
+        </div>
+        <div id="sv-friday-container" style="display:none;">
+          <label style="font-size:12px;font-weight:800;color:#c2410c;display:block;margin-bottom:6px;">🗓 금요일 순번 (한 줄에 한 명 · 별도 배정)</label>
+          <textarea class="teacher-list-input" id="sv-friday-list" placeholder="예:&#10;김○○&#10;이○○&#10;박○○" oninput="svSaveFridayOrder()"></textarea>
         </div>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -1253,7 +1256,8 @@ let scheduleData = [
 ];
 
 let yajaData={}, seoksiData={}, svData={};
-var svTeachersByMonth = {}; // {3:['김○○',...], 4:[...], ...}
+var svTeachersByMonth = {};        // 월~목 순번 (3월은 월~금 통합)
+var svFridayTeachersByMonth = {};  // 금요일 순번 (4월부터 별도)
 
 // 봉사활동
 const VOLUNTEER_TYPES = [
@@ -2850,12 +2854,19 @@ function parseTeacherList(textarea) {
 // 달별 순번 textarea 동기화
 function svLoadMonthOrder() {
   var wl = document.getElementById('sv-weekday-list');
-  var label = document.getElementById('sv-order-month-label');
+  var fl = document.getElementById('sv-friday-list');
+  var fc = document.getElementById('sv-friday-container');
+  var wLabel = document.getElementById('sv-weekday-label');
+  var label  = document.getElementById('sv-order-month-label');
   if (!wl) return;
-  var list = svTeachersByMonth[svMonth] || [];
-  wl.value = list.join('\n');
+  var isSplit = svMonth >= 4;
+  // 월~목 (또는 3월은 월~금) 순번
+  wl.value = (svTeachersByMonth[svMonth] || []).join('\n');
+  if (wLabel) wLabel.textContent = isSplit ? '📅 월~목 순번 (한 줄에 한 명)' : '📅 순번 (한 줄에 한 명 · 월~금 이어서 배정)';
+  // 금요일 순번 (4월+)
+  if (fc) fc.style.display = isSplit ? '' : 'none';
+  if (fl && isSplit) fl.value = (svFridayTeachersByMonth[svMonth] || []).join('\n');
   if (label) label.textContent = svMonth + '월 순번';
-  // 이전달 복사 버튼 활성화 여부
   var btn = document.getElementById('sv-copy-prev-btn');
   if (btn) btn.style.display = (svMonth > 3) ? '' : 'none';
 }
@@ -2863,8 +2874,13 @@ function svLoadMonthOrder() {
 function svSaveMonthOrder() {
   var wl = document.getElementById('sv-weekday-list');
   if (!wl) return;
-  var list = wl.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
-  svTeachersByMonth[svMonth] = list;
+  svTeachersByMonth[svMonth] = wl.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  scheduleSave();
+}
+function svSaveFridayOrder() {
+  var fl = document.getElementById('sv-friday-list');
+  if (!fl) return;
+  svFridayTeachersByMonth[svMonth] = fl.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
   scheduleSave();
 }
 
@@ -2874,98 +2890,97 @@ function svCopyPrevMonthOrder() {
   var prevList = svTeachersByMonth[prev] || [];
   if (!prevList.length) { showToast('⚠️ ' + prev + '월 순번이 없습니다.'); return; }
   svTeachersByMonth[svMonth] = prevList.slice();
+  if (svMonth >= 4) svFridayTeachersByMonth[svMonth] = (svFridayTeachersByMonth[prev] || []).slice();
   svLoadMonthOrder();
   scheduleSave();
   showToast('📋 ' + prev + '월 순번을 ' + svMonth + '월에 복사했습니다.');
 }
 
 function generateSvCalendar(){
-  var teachers = parseTeacherList(document.getElementById('sv-weekday-list'));
+  var isSplit   = svMonth >= 4; // 4월부터 월~목 / 금 분리
+  var teachers  = parseTeacherList(document.getElementById('sv-weekday-list'));
   if(!teachers.length){showToast('선생님 순번을 입력해주세요.');return;}
+  var friTeachers = isSplit ? parseTeacherList(document.getElementById('sv-friday-list')) : teachers;
+  if(isSplit && !friTeachers.length){showToast('⚠️ 금요일 순번을 입력해주세요.');return;}
 
   // 현재 달 순번 저장
-  svTeachersByMonth[svMonth] = teachers.map(function(t){
-    return t.name + (t.skipDows.size ? ':' + [...t.skipDows].map(function(d){return ['일','월','화','수','목','금','토'][d];}).join('') : '');
-  });
+  var toStr = function(t){ return t.name + (t.skipDows.size ? ':' + [...t.skipDows].map(function(d){return ['일','월','화','수','목','금','토'][d];}).join('') : ''); };
+  svTeachersByMonth[svMonth] = teachers.map(toStr);
+  if (isSplit) svFridayTeachersByMonth[svMonth] = friTeachers.map(toStr);
   scheduleSave();
 
   var dates = getWeekdayDates(2026, svMonth);
   svData[svMonth] = {};
   var skippedCount = 0;
 
-  // 입력 순서 맵 (동점 시 순번 우선)
-  var orderMap = {};
-  teachers.forEach(function(t, i){ orderMap[t.name] = i; });
+  var orderMap = {}; teachers.forEach(function(t,i){ orderMap[t.name]=i; });
+  var orderMapFri = {}; friTeachers.forEach(function(t,i){ orderMapFri[t.name]=i; });
 
-  // ── 전체 기간 누적 횟수 집계 (이전 달 svData 전체) ──
-  var counts = {};
-  teachers.forEach(function(t){ counts[t.name] = 0; });
+  // ── 전체 누적 횟수 집계 ──
+  var counts = {}; teachers.forEach(function(t){ counts[t.name]=0; });
+  var countsFri = {}; friTeachers.forEach(function(t){ countsFri[t.name]=0; });
 
   for (var pm = 3; pm < svMonth; pm++) {
     if (!svData[pm]) continue;
     Object.values(svData[pm]).forEach(function(sv) {
       if (!sv || !sv.name || sv.skip) return;
-      // 이번 달 순번에 있는 선생님만 누적에 포함
-      if (counts[sv.name] !== undefined) counts[sv.name]++;
+      if (isSplit && sv.isFri) { if (countsFri[sv.name]!==undefined) countsFri[sv.name]++; }
+      else                     { if (counts[sv.name]!==undefined)    counts[sv.name]++; }
     });
   }
 
-  // 직전 달 마지막 실제 배정자 (연속 방지용)
-  var lastAssigned = '';
+  // 직전 달 마지막 배정자 (연속 방지)
+  var lastAssigned = '', lastAssignedFri = '';
   var prevMonth = svMonth - 1;
   if (prevMonth >= 3 && svData[prevMonth]) {
-    var prevKeys = Object.keys(svData[prevMonth]).sort(function(a,b){
-      return parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]);
-    });
+    var prevKeys = Object.keys(svData[prevMonth]).sort(function(a,b){ return parseInt(a.split('-')[1])-parseInt(b.split('-')[1]); });
     for (var pi = prevKeys.length-1; pi >= 0; pi--) {
       var ps = svData[prevMonth][prevKeys[pi]];
-      if (ps && ps.name && !ps.skip) { lastAssigned = ps.name; break; }
+      if (!ps||!ps.name||ps.skip) continue;
+      if (isSplit) {
+        if (ps.isFri  && !lastAssignedFri) lastAssignedFri = ps.name;
+        if (!ps.isFri && !lastAssigned)    lastAssigned    = ps.name;
+        if (lastAssigned && lastAssignedFri) break;
+      } else { lastAssigned = ps.name; break; }
     }
   }
 
-  // ── 날짜별 배정 ──
-  var thisMonthCounts = {};
-  teachers.forEach(function(t){ thisMonthCounts[t.name] = 0; });
+  var thisMonthCounts = {}; teachers.forEach(function(t){ thisMonthCounts[t.name]=0; });
+  var thisMonthCountsFri = {}; friTeachers.forEach(function(t){ thisMonthCountsFri[t.name]=0; });
 
+  // ── 날짜별 배정 ──
   dates.forEach(function(item){
     var d = item.d, dow = item.dow;
-    var key = svMonth + '-' + d;
-    var ds  = '2026-' + String(svMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    var key = svMonth+'-'+d;
+    var ds  = '2026-'+String(svMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     if (isSkipDate(ds)) {
       svData[svMonth][key] = {name:'', isFri:dow===5, skip:true, skipReason:getSkipReason(ds)};
-      skippedCount++;
-      return;
+      skippedCount++; return;
     }
-
-    // 해당 요일 배정 가능한 선생님
-    var available = teachers.filter(function(t){ return !t.skipDows.has(dow); });
-    if (!available.length) available = teachers.slice();
-
-    // 연속 배정 방지
-    var candidates = available.filter(function(t){ return t.name !== lastAssigned; });
+    var isFri = dow === 5;
+    var pool  = (isSplit && isFri) ? friTeachers : teachers;
+    var cMap  = (isSplit && isFri) ? countsFri : counts;
+    var oMap  = (isSplit && isFri) ? orderMapFri : orderMap;
+    var last  = (isSplit && isFri) ? lastAssignedFri : lastAssigned;
+    var available = pool.filter(function(t){ return !t.skipDows.has(dow); });
+    if (!available.length) available = pool.slice();
+    var candidates = available.filter(function(t){ return t.name !== last; });
     if (!candidates.length) candidates = available.slice();
-
-    // 전체 누적 횟수 최소 → 동점이면 입력 순번 순서
-    candidates.sort(function(a, b){
-      var diff = counts[a.name] - counts[b.name];
-      return diff !== 0 ? diff : orderMap[a.name] - orderMap[b.name];
-    });
-
+    candidates.sort(function(a,b){ var diff=cMap[a.name]-cMap[b.name]; return diff!==0?diff:oMap[a.name]-oMap[b.name]; });
     var assigned = candidates[0].name;
-    counts[assigned]++;
-    thisMonthCounts[assigned]++;
-    lastAssigned = assigned;
-    svData[svMonth][key] = {name:assigned, isFri:dow===5, skip:false};
+    cMap[assigned]++;
+    if (isSplit && isFri) { thisMonthCountsFri[assigned]++; lastAssignedFri = assigned; }
+    else                  { thisMonthCounts[assigned]++;    lastAssigned    = assigned; }
+    svData[svMonth][key] = {name:assigned, isFri:isFri, skip:false};
   });
 
-  // 결과 요약 (이번 달 횟수 / 전체 누적 횟수)
-  var summary = teachers.map(function(t){
-    return t.name + ' ' + (thisMonthCounts[t.name]||0) + '회(누적 ' + counts[t.name] + '회)';
-  }).join(' · ');
+  // 결과 요약
+  var summary = teachers.map(function(t){ return t.name+' '+(thisMonthCounts[t.name]||0)+'회'; }).join(' · ');
+  if (isSplit) summary += ' | 금: ' + friTeachers.map(function(t){ return t.name+' '+(thisMonthCountsFri[t.name]||0)+'회'; }).join(' · ');
 
   renderSvCal();
   if(document.getElementById('sv-count').classList.contains('active')) renderSvCountTable();
-  showToast('✅ ' + svMonth + '월 감독표 생성 완료' + (skippedCount?' (제외 '+skippedCount+'일)':'') + ' | ' + summary);
+  showToast('✅ '+svMonth+'월 감독표 생성 완료'+(skippedCount?' (제외 '+skippedCount+'일)':'')+' | '+summary);
 }
 function clearSvCalendar(){
   svData[svMonth]={};renderSvCal();
@@ -4211,6 +4226,7 @@ function collectSaveData() {
   return JSON.stringify({
     yajaData: yajaData, seoksiData: seoksiData, attendCheck: attendCheck, svData: svData,
     svTeachersByMonth: svTeachersByMonth,
+    svFridayTeachersByMonth: svFridayTeachersByMonth,
     studentRoster: studentRoster, scheduleData: scheduleData, jumperData: jumperData, appPeriod: appPeriod, volunteerData: volunteerData,
     dormStudents: dormStudents,
     absentReasons: absentReasons
@@ -4830,10 +4846,10 @@ function loadFromSheet() {
         if (r.svTeachersByMonth) {
           svTeachersByMonth = r.svTeachersByMonth;
         } else if (r.svTeachers || r.svWeekday) {
-          // 구버전 호환: 공통 순번을 현재 달에 복원
           var svT = r.svTeachers || {weekday: r.svWeekday||[], friday: r.svFriday||[]};
           if (svT.weekday && svT.weekday.length) svTeachersByMonth[svMonth] = svT.weekday;
         }
+        if (r.svFridayTeachersByMonth) svFridayTeachersByMonth = r.svFridayTeachersByMonth;
         svLoadMonthOrder();
         svLoadMonthOrder();
         // 학생 명단 (cls 날짜변환 방어)
