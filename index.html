@@ -4820,8 +4820,17 @@ function loadFromSheet() {
         svLoadMonthOrder();
         svLoadMonthOrder();
         // 학생 명단 (cls 날짜변환 방어)
-        if (r.studentRoster&&r.studentRoster.length)
+        if (r.studentRoster&&r.studentRoster.length) {
           studentRoster = r.studentRoster.map(fixClsFromId);
+          // CLASS_STUDENTS 동기화: 전입 등으로 추가된 학생 반영
+          studentRoster.forEach(function(s) {
+            if (!CLASS_STUDENTS[s.cls]) return;
+            if (!CLASS_STUDENTS[s.cls].find(function(x){ return x.num===s.num&&x.name===s.name; })) {
+              CLASS_STUDENTS[s.cls].push({ num: s.num, name: s.name });
+              CLASS_STUDENTS[s.cls].sort(function(a,b){ return a.num-b.num; });
+            }
+          });
+        }
         // 점퍼 사이즈 복원
         if (r.jumperData) {
           Object.keys(r.jumperData).forEach(function(cls) {
