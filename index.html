@@ -1333,6 +1333,26 @@ function isDormStudent(cls, num) {
   return (dormStudents[cls] || []).indexOf(Number(num)) !== -1;
 }
 
+// 기숙사 8교시 예외: 교사가 특정 요일 체크 해제한 기숙사 학생
+// 구조: {month: {cls: {num: {dow: true}}}}
+var dormExceptions = {};
+MONTHS.forEach(function(m){ dormExceptions[m] = {}; });
+
+// 기숙사 학생의 해당 요일 8교시 자동 적용 여부 (예외 반영)
+function isDormAutoP8(cls, num, dow, month) {
+  if (!isDormStudent(cls, num)) return false;
+  var m = (month !== undefined) ? month : yajaMonth;
+  var exc = (dormExceptions[m]||{})[cls];
+  return !(exc && exc[String(num)] && exc[String(num)][dow]);
+}
+
+function setDormException(cls, num, dow, val) {
+  if (!dormExceptions[yajaMonth][cls]) dormExceptions[yajaMonth][cls] = {};
+  if (!dormExceptions[yajaMonth][cls][String(num)]) dormExceptions[yajaMonth][cls][String(num)] = {};
+  if (val) dormExceptions[yajaMonth][cls][String(num)][dow] = true;
+  else     delete dormExceptions[yajaMonth][cls][String(num)][dow];
+}
+
 // 출석 체크: attendCheck[month][dateStr][cls][period][idx]
 // dateStr 예: '2026-03-05'
 const attendCheck={};
@@ -1779,7 +1799,7 @@ function renderYajaGrid(){
       var student = CLASS_STUDENTS[c][idx];
       var applied = false;
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && (hasAfterSchool(c, student.num, k) || isDormStudent(c, student.num));
+        var autoP8 = student && (hasAfterSchool(c, student.num, k) || isDormAutoP8(c, student.num, k, m));
         if((s[k] && s[k].p8) || autoP8){ totals.p8++; dowCounts[k].p8++; applied=true; }
         if(s[k] && s[k].y1){ totals.y1++; dowCounts[k].y1++; applied=true; }
         if(s[k] && s[k].y2){ totals.y2++; dowCounts[k].y2++; applied=true; }
@@ -1834,7 +1854,7 @@ function renderYajaGrid(){
     d.forEach(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormStudent(cls, student.num));
+        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
         if((s[k]&&s[k].p8)||autoP8) clsDowCounts[k].p8++;
         if(s[k]&&s[k].y1) clsDowCounts[k].y1++;
         if(s[k]&&s[k].y2) clsDowCounts[k].y2++;
@@ -1844,7 +1864,7 @@ function renderYajaGrid(){
     var clsUniq = d.filter(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       return DOW_KEYS.some(function(k){
-        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormStudent(cls, student.num));
+        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
         return (s[k]&&(s[k].p8||s[k].y1||s[k].y2)) || autoP8;
       });
     }).length;
@@ -1928,7 +1948,7 @@ function renderStudentTable(cls){
     var dayData = (allData[i] && allData[i][dow]) ? allData[i][dow] : {p8:false,y1:false,y2:false};
     var isAfter = hasAfterSchool(cls, s.num, dow);
     var isDorm  = isDormStudent(cls, s.num);
-    var autoP8  = isAfter || isDorm;
+    var autoP8  = isAfter || isDormAutoP8(cls, s.num, dow);
     var p8c = (dayData.p8 || autoP8) ? 'checked' : '';
     var y1c = dayData.y1 ? 'checked' : '';
     var y2c = dayData.y2 ? 'checked' : '';
@@ -1958,7 +1978,13 @@ function toggleYaja(i,field,val){
   var d=yajaData[yajaMonth][cls][i][dow];
   if(field==='y2'){d.y2=val;if(val){d.y1=true;d.p8=true;}}
   else if(field==='y1'){d.y1=val;if(val){d.p8=true;}if(!val&&d.y2)d.y2=false;}
-  else if(field==='p8'){d.p8=val;if(!val){d.y1=false;d.y2=false;}}
+  else if(field==='p8'){
+    d.p8=val;
+    if(!val){d.y1=false;d.y2=false;}
+    // 기숙사 학생 예외 처리
+    var _st = CLASS_STUDENTS[cls] && CLASS_STUDENTS[cls][i];
+    if (_st && isDormStudent(cls, _st.num)) setDormException(cls, _st.num, dow, !val);
+  }
   ['p8','y1','y2'].forEach(f=>{const el=document.getElementById(`${f}-${i}`);if(el)el.checked=d[f];});
   updateStudentSummary();renderYajaGrid();
 }
@@ -1972,7 +1998,7 @@ function updateStudentSummary(){
     var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
     if(i<0) return;
     var d = (allData[i]&&allData[i][dow]) ? allData[i][dow] : {};
-    var autoP8 = hasAfterSchool(cls, s.num, dow) || isDormStudent(cls, s.num);
+    var autoP8 = hasAfterSchool(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
     if(d.p8 || autoP8) p8++; if(d.y1) y1++; if(d.y2) y2++;
   });
   document.getElementById('student-summary').innerHTML=
@@ -2173,9 +2199,9 @@ function renderYajaStatusTable() {
     var yaja = yajaData[m][cls];
     var clsAtt = att[cls];
     var _attDow = attendDateToDow(attendDate);
-    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormStudent(cls,s.num)||hasAfterSchool(cls,s.num,_attDow); });
+    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormAutoP8(cls,s.num,_attDow)||hasAfterSchool(cls,s.num,_attDow); });
     var cc = {
-      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormStudent(cls,s.num)||hasAfterSchool(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
+      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormAutoP8(cls,s.num,_attDow)||hasAfterSchool(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
       y1: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y1;}).length, ok: clsAtt.y1.filter(Boolean).length},
       y2: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y2;}).length, ok: clsAtt.y2.filter(Boolean).length}
     };
@@ -2198,7 +2224,7 @@ function renderYajaStatusTable() {
         var d = _dd;
         var _isAfter = hasAfterSchool(cls, s.num, _attDow);
         var _isDorm  = isDormStudent(cls, s.num);
-        var _autoP8  = _isAfter || _isDorm;
+        var _autoP8  = _isAfter || isDormAutoP8(cls, s.num, _attDow);
         if (!d.p8 && !d.y1 && !d.y2 && !_autoP8) return;
         var allOk = (!(d.p8||_autoP8)||clsAtt.p8[i]) && (!d.y1||clsAtt.y1[i]) && (!d.y2||clsAtt.y2[i]);
         var mkChk = function(p) {
@@ -4242,7 +4268,8 @@ function collectSaveData() {
     svFridayTeachersByMonth: svFridayTeachersByMonth,
     studentRoster: studentRoster, scheduleData: scheduleData, jumperData: jumperData, appPeriod: appPeriod, volunteerData: volunteerData,
     dormStudents: dormStudents,
-    absentReasons: absentReasons
+    absentReasons: absentReasons,
+    dormExceptions: dormExceptions
   });
 }
 
@@ -4922,6 +4949,16 @@ function loadFromSheet() {
         if (r.dormStudents) {
           CLASSES.forEach(function(cls) {
             if (Array.isArray(r.dormStudents[cls])) dormStudents[cls] = r.dormStudents[cls].map(Number);
+          });
+        }
+        // 기숙사 8교시 예외 복원
+        if (r.dormExceptions) {
+          Object.keys(r.dormExceptions).forEach(function(m) {
+            var mi = Number(m);
+            if (!dormExceptions[mi]) dormExceptions[mi] = {};
+            Object.keys(r.dormExceptions[m]||{}).forEach(function(cls) {
+              dormExceptions[mi][cls] = r.dormExceptions[m][cls];
+            });
           });
         }
         // 불참석 사유 복원

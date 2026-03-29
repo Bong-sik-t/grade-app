@@ -64,7 +64,8 @@ function saveAllData(jsonStr) {
     if (data.jumperData)    saveJumperData(data.jumperData);
     if (data.appPeriod)     saveAppPeriod(data.appPeriod);
     if (data.volunteerData) saveVolunteerData(data.volunteerData);
-    if (data.dormStudents)  saveDormStudents(data.dormStudents);
+    if (data.dormStudents)   saveDormStudents(data.dormStudents);
+    if (data.dormExceptions) saveDormExceptions(data.dormExceptions);
     if (data.absentReasons) saveAbsentReasons(data.absentReasons);
     return {ok: true};
   } catch(e) {
@@ -90,7 +91,8 @@ function loadAllData() {
       jumperData:    loadJumperData(),
       appPeriod:     loadAppPeriod(),
       volunteerData: loadVolunteerData(),
-      dormStudents:  loadDormStudents(),
+      dormStudents:   loadDormStudents(),
+      dormExceptions: loadDormExceptions(),
       absentReasons: loadAbsentReasons()
     };
   } catch(e) {
@@ -565,6 +567,41 @@ function loadDormStudents() {
     if (!cls || !num) return;
     if (!result[cls]) result[cls] = [];
     result[cls].push(num);
+  });
+  return result;
+}
+
+// =====================================================
+// 기숙사 8교시 예외 (교사가 특정 요일 체크 해제한 기숙사 학생)
+// =====================================================
+function saveDormExceptions(data) {
+  var sh = getOrCreateSheet('기숙사예외');
+  sh.clearContents();
+  var rows = [['month','cls','num','dow']];
+  Object.keys(data).forEach(function(m) {
+    Object.keys(data[m]||{}).forEach(function(cls) {
+      Object.keys(data[m][cls]||{}).forEach(function(num) {
+        Object.keys(data[m][cls][num]||{}).forEach(function(dow) {
+          if (data[m][cls][num][dow]) rows.push([Number(m), cls, num, dow]);
+        });
+      });
+    });
+  });
+  if (rows.length > 1) sh.getRange(1,1,rows.length,4).setValues(rows);
+}
+
+function loadDormExceptions() {
+  var sh = getOrCreateSheet('기숙사예외');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2,1,sh.getLastRow()-1,4).getDisplayValues();
+  rows.forEach(function(r) {
+    var m = Number(r[0]), cls = String(r[1]||'').trim(), num = String(r[2]||'').trim(), dow = String(r[3]||'').trim();
+    if (!m||!cls||!num||!dow) return;
+    if (!result[m]) result[m] = {};
+    if (!result[m][cls]) result[m][cls] = {};
+    if (!result[m][cls][num]) result[m][cls][num] = {};
+    result[m][cls][num][dow] = true;
   });
   return result;
 }
