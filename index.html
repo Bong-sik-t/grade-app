@@ -4971,6 +4971,16 @@ function loadFromSheet() {
             });
           });
         }
+        // 기숙사 8교시 예외 복원
+        if (r.dormExceptions) {
+          Object.keys(r.dormExceptions).forEach(function(m) {
+            var mi = Number(m);
+            if (!dormExceptions[mi]) dormExceptions[mi] = {};
+            Object.keys(r.dormExceptions[m]||{}).forEach(function(cls) {
+              dormExceptions[mi][cls] = r.dormExceptions[m][cls];
+            });
+          });
+        }
         // 신청 기간 복원
         if (r.appPeriod) {
           appPeriod = {start: r.appPeriod.start||'', end: r.appPeriod.end||''};
