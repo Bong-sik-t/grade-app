@@ -2120,18 +2120,7 @@ function syncAbsentReasons(callback) {
         });
       });
 
-      // ── 기숙사 학생 동기화 ──
-      if (r.dormStudents) {
-        var incomingDorm = r.dormStudents;
-        CLASSES.forEach(function(cls) {
-          var newNums = (incomingDorm[cls]||[]).map(Number).sort().join(',');
-          var oldNums = (dormStudents[cls]||[]).map(Number).sort().join(',');
-          if (newNums !== oldNums) {
-            dormStudents[cls] = (incomingDorm[cls]||[]).map(Number);
-            changed = true;
-          }
-        });
-      }
+      // 기숙사 학생은 파일 업로드/페이지 로드 시에만 갱신 (폴링에서 제외)
 
       if (changed) renderYajaStatusTable();
       if (callback) callback();
