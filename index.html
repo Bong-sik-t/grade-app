@@ -2230,7 +2230,7 @@ function renderYajaStatusTable() {
         var mkChk = function(p) {
           var hasApp = d[p] || (p==='p8' && _autoP8);
           if (!hasApp) return '<td><div class="chk na">—</div></td>';
-          return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')"></div></td>';
+          return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')" ontouchend="_touchChk(event,\''+cls+'\',\''+p+'\','+i+')"></div></td>';
         };
         var _badge = '';
         if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(방과후)</span>';
@@ -2258,6 +2258,15 @@ function renderYajaStatusTable() {
    +'<span>❌ 미확인: <b style="color:#dc2626">'+(totalA-totalOk)+'건</b></span>';
 }
 
+var _lastChkTime = 0;
+function _touchChk(e, cls, p, i) {
+  e.preventDefault();
+  e.stopPropagation();
+  var now = Date.now();
+  if (now - _lastChkTime < 300) return;
+  _lastChkTime = now;
+  toggleChk(cls, p, i);
+}
 function toggleChk(cls, period, i) {
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
