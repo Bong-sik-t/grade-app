@@ -2099,6 +2099,7 @@ function syncAbsentReasons(callback) {
   callApi('loadAbsentReasons')
     .then(function(r) {
       if (!r || !r.ok) return;
+      if (Date.now() < _absentSyncPauseUntil) return;  // in-flight 응답도 저장 직후엔 무시
       var changed = false;
 
       // ── 불참사유 동기화 ──
@@ -2315,7 +2316,7 @@ function saveAbsentReason() {
   else delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
-  _absentSyncPauseUntil = Date.now() + 5000;
+  _absentSyncPauseUntil = Date.now() + 15000;
   scheduleSave();
   showToast('✅ '+t.name+' 사유 저장 완료');
 }
@@ -2326,7 +2327,7 @@ function deleteAbsentReason() {
   if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
-  _absentSyncPauseUntil = Date.now() + 5000;
+  _absentSyncPauseUntil = Date.now() + 15000;
   scheduleSave();
   showToast('🗑 사유 삭제 완료');
 }
