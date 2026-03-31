@@ -1358,7 +1358,7 @@ function setDormException(cls, num, dow, val) {
 const attendCheck={};
 MONTHS.forEach(m=>{ attendCheck[m]={}; });
 
-// 불참석 사유: absentReasons[month][dateStr][cls+'-'+num] = reason
+// 불참석 사유: absentReasons[month][dateStr][cls+'|'+num] = reason
 const absentReasons={};
 MONTHS.forEach(m=>{ absentReasons[m]={}; });
 var _absentReasonTarget=null;
@@ -2296,7 +2296,7 @@ function openAbsentReason(cls, num, name) {
   _absentReasonTarget = {cls:cls, num:num, name:name, date:attendDate, month:yajaMonth};
   var _parts = attendDate.split('-');
   var _dow = ['일','월','화','수','목','금','토'][new Date(+_parts[0],+_parts[1]-1,+_parts[2]).getDay()];
-  var _key = cls+'-'+num;
+  var _key = cls+'|'+num;
   var _existing = (absentReasons[yajaMonth]&&absentReasons[yajaMonth][attendDate]&&absentReasons[yajaMonth][attendDate][_key])||'';
   document.getElementById('absent-reason-info').innerHTML =
     '<b style="font-size:15px;color:#1e3a5f;">'+cls+'반 '+num+'번 '+name+'</b><br>'
