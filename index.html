@@ -3261,6 +3261,7 @@ function confirmSwap(){
     closeModal('modal-sv-swap');
     renderSvCal();
     if(document.getElementById('sv-count').classList.contains('active'))renderSvCountTable();
+    scheduleSave();
     showToast(`✅ ${oldName||'미배정'} → ${swapSelectedTeacher} 교체 완료`);
 
   } else if(swapMode==='direct'){
@@ -3271,6 +3272,7 @@ function confirmSwap(){
     closeModal('modal-sv-swap');
     renderSvCal();
     if(document.getElementById('sv-count').classList.contains('active'))renderSvCountTable();
+    scheduleSave();
     showToast(`✅ ${oldName||'미배정'} → ${newName} 교체 완료`);
 
   } else if(swapMode==='date'){
@@ -3283,6 +3285,7 @@ function confirmSwap(){
     closeModal('modal-sv-swap');
     renderSvCal();
     if(document.getElementById('sv-count').classList.contains('active'))renderSvCountTable();
+    scheduleSave();
     const [km,kd]=swapKey.split('-').map(Number);
     const [bm,bd]=swapSelectedDateKey.split('-').map(Number);
     showToast(`🔄 ${km}/${kd}(${nameA||'미배정'}) ↔ ${bm}/${bd}(${nameB||'미배정'}) 맞교환 완료`);
@@ -3293,6 +3296,7 @@ function confirmSwap(){
     closeModal('modal-sv-swap');
     renderSvCal();
     if(document.getElementById('sv-count').classList.contains('active'))renderSvCountTable();
+    scheduleSave();
     const [rm,rd]=swapKey.split('-').map(Number);
     showToast(`🗑 ${rm}/${rd} 감독 삭제 (${oldName} → 없음)`);
   }
