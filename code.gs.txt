@@ -59,6 +59,7 @@ function saveAllData(jsonStr) {
     if (data.svData)        saveSvData(data.svData);
     if (data.svTeachersByMonth) saveSvTeachersByMonth(data.svTeachersByMonth);
     else if (data.svTeachers) { var svT=data.svTeachers; saveSvTeachersByMonth({3: svT.weekday||[]}); } // 구버전 호환
+    if (data.svFridayTeachersByMonth) saveSvFridayTeachersByMonth(data.svFridayTeachersByMonth);
     if (data.studentRoster) saveRoster(data.studentRoster);
     if (data.scheduleData)  saveSchedule(data.scheduleData);
     if (data.jumperData)    saveJumperData(data.jumperData);
@@ -86,6 +87,7 @@ function loadAllData() {
       attendCheck:   loadAttendData(),
       svData:        loadSvData(),
       svTeachersByMonth: loadSvTeachersByMonth(),
+      svFridayTeachersByMonth: loadSvFridayTeachersByMonth(),
       studentRoster: loadRoster(),
       scheduleData:  loadSchedule(),
       jumperData:    loadJumperData(),
@@ -278,6 +280,35 @@ function saveSvTeachersByMonth(byMonth) {
 
 function loadSvTeachersByMonth() {
   var sh = getOrCreateSheet('감독순번');
+  var result = {};
+  if (sh.getLastRow() < 2) return result;
+  var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
+  rows.forEach(function(r) {
+    var m = Number(r[0]);
+    var name = String(r[1]||'').trim();
+    if (!m || !name) return;
+    if (!result[m]) result[m] = [];
+    result[m].push(name);
+  });
+  return result;
+}
+
+function saveSvFridayTeachersByMonth(byMonth) {
+  var sh = getOrCreateSheet('금요감독순번');
+  sh.clearContents();
+  var rows = [['month','teacher']];
+  Object.keys(byMonth).forEach(function(m) {
+    var list = byMonth[m];
+    if (!Array.isArray(list)) return;
+    list.forEach(function(name) {
+      if (name && name.trim()) rows.push([String(m), String(name)]);
+    });
+  });
+  sh.getRange(1, 1, rows.length, 2).setValues(rows);
+}
+
+function loadSvFridayTeachersByMonth() {
+  var sh = getOrCreateSheet('금요감독순번');
   var result = {};
   if (sh.getLastRow() < 2) return result;
   var rows = sh.getRange(2, 1, sh.getLastRow()-1, 2).getDisplayValues();
