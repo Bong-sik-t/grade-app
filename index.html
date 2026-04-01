@@ -2714,7 +2714,7 @@ function exportSeoksiCsv() {
     getActiveStudents(cls).forEach(function(s) {
       var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
       if (i >= 0 && isSeoksiApplied(cls, i)) {
-        rows.push(cls + ',' + s.num + ',' + s.name);
+        rows.push(cls.split('-')[1] + '반,' + s.num + ',' + s.name);
       }
     });
   });
