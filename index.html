@@ -539,6 +539,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div class="sub-tab" onclick="switchSubTab('yaja-status',this)">✅ 야자 출석 확인</div>
     <div class="sub-tab" onclick="switchSubTab('yaja-rate',this)">📊 야자 출석률</div>
     <div class="sub-tab" onclick="switchSubTab('yaja-roster',this)">📋 명단 인쇄</div>
+    <div class="sub-tab" onclick="switchSubTab('yaja-total',this)">📊 요일별 총계</div>
   </div>
 
   <!-- 반별 입력 -->
@@ -620,6 +621,15 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
         <thead id="rate-thead"></thead><tbody id="rate-tbody"></tbody>
       </table></div>
     </div>
+  </div>
+
+  <!-- 요일별 총계 -->
+  <div id="yaja-total" class="sub-section">
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;" class="no-print">
+      <span style="font-size:14px;font-weight:800;color:var(--navy);">📊 요일별 신청 총계</span>
+      <span style="font-size:12px;color:var(--g400);">* 야자1·야자2는 기숙사 학생 제외</span>
+    </div>
+    <div id="yaja-total-body"></div>
   </div>
 
   <!-- 야자 명단 인쇄 -->
@@ -1672,6 +1682,7 @@ function switchSubTab(id,el){
   else { stopAbsentPolling(); }
   if(id==='yaja-rate') renderRateTable();
   if(id==='yaja-roster') renderYajaRoster();
+  if(id==='yaja-total') renderYajaTotalTable();
   if(id==='sv-count') { svCountMonth=svMonth; renderSvCountTable(); }
 }
 
@@ -1694,6 +1705,7 @@ function setMonth(prefix,m){
     yajaMonth=m;buildNav('yaja-month',m);renderYajaGrid();
     if(document.getElementById('yaja-status').classList.contains('active')){ initAttendDate(); renderYajaStatusTable(); }
     if(document.getElementById('yaja-rate').classList.contains('active'))renderRateTable();
+    if(document.getElementById('yaja-total').classList.contains('active'))renderYajaTotalTable();
   }
   else if(prefix==='seoksi-month'){seoksiMonth=m;buildNav('seoksi-month',m);renderSeoksiGrid();}
   else if(prefix==='sv-month'){
@@ -2509,6 +2521,96 @@ function calcRate(cls, i, period) {
   }
 }
 
+
+function renderYajaTotalTable() {
+  var m = yajaMonth;
+  var dowList = [
+    {key:'mon', label:'월'},
+    {key:'tue', label:'화'},
+    {key:'wed', label:'수'},
+    {key:'thu', label:'목'},
+    {key:'fri', label:'금'}
+  ];
+
+  // 반별 + 요일별 집계
+  // p8: 신청자 수, y1: 야자1 신청자 수(기숙사 제외), y2: 야자2 신청자 수(기숙사 제외)
+  var totals = {}; // totals[dow] = {p8:0, y1:0, y2:0}
+  dowList.forEach(function(d){ totals[d.key] = {p8:0, y1:0, y2:0}; });
+
+  // 반별 소계 rows
+  var clsRows = [];
+
+  CLASSES.forEach(function(cls) {
+    var clsTot = {};
+    dowList.forEach(function(d){ clsTot[d.key] = {p8:0, y1:0, y2:0}; });
+
+    var students = getActiveStudents(cls);
+    students.forEach(function(s) {
+      var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
+      if (i < 0) return;
+      var _isDorm = isDormStudent(cls, s.num);
+      dowList.forEach(function(d) {
+        var entry = yajaData[m][cls][i] && yajaData[m][cls][i][d.key];
+        var _autoP8 = isDormAutoP8(cls, s.num, d.key) || hasAfterSchool(cls, s.num, d.key);
+        if (entry && entry.p8 || _autoP8) clsTot[d.key].p8++;
+        // 야자1·야자2: 기숙사 학생 제외
+        if (!_isDorm) {
+          if (entry && entry.y1) clsTot[d.key].y1++;
+          if (entry && entry.y2) clsTot[d.key].y2++;
+        }
+      });
+    });
+
+    clsRows.push({cls: cls, tot: clsTot});
+    dowList.forEach(function(d){
+      totals[d.key].p8 += clsTot[d.key].p8;
+      totals[d.key].y1 += clsTot[d.key].y1;
+      totals[d.key].y2 += clsTot[d.key].y2;
+    });
+  });
+
+  // 테이블 렌더
+  var thCols = '<th style="min-width:60px;">반</th><th style="min-width:60px;">구분</th>';
+  dowList.forEach(function(d){ thCols += '<th style="min-width:56px;text-align:center;">'+d.label+'요일</th>'; });
+
+  var rows = '';
+  clsRows.forEach(function(r) {
+    var labels = [{key:'p8',label:'8교시',color:'var(--p8)'},{key:'y1',label:'야자1',color:'var(--y1)'},{key:'y2',label:'야자2',color:'var(--y2)'}];
+    labels.forEach(function(lb, li) {
+      rows += '<tr>';
+      if (li === 0) rows += '<td rowspan="3" style="font-weight:800;text-align:center;vertical-align:middle;background:#f8fafc;">'+r.cls+'</td>';
+      rows += '<td style="font-weight:700;color:'+lb.color+';text-align:center;font-size:12px;white-space:nowrap;">'+lb.label+'</td>';
+      dowList.forEach(function(d){
+        var v = r.tot[d.key][lb.key];
+        rows += '<td style="text-align:center;font-weight:'+(v>0?'700':'400')+';color:'+(v>0?lb.color:'var(--g300)')+';">'+(v>0?v:'—')+'</td>';
+      });
+      rows += '</tr>';
+    });
+    rows += '<tr style="height:6px;background:#f1f5f9;"><td colspan="'+(2+dowList.length)+'"></td></tr>';
+  });
+
+  // 합계 행
+  var sumLabels = [{key:'p8',label:'8교시 합계',color:'var(--p8)'},{key:'y1',label:'야자1 합계',color:'var(--y1)'},{key:'y2',label:'야자2 합계',color:'var(--y2)'}];
+  sumLabels.forEach(function(lb, li) {
+    rows += '<tr style="background:#eff6ff;">';
+    if (li === 0) rows += '<td rowspan="3" style="font-weight:800;text-align:center;vertical-align:middle;color:var(--navy);">전체<br>합계</td>';
+    rows += '<td style="font-weight:800;color:'+lb.color+';text-align:center;font-size:12px;white-space:nowrap;">'+lb.label+'</td>';
+    dowList.forEach(function(d){
+      var v = totals[d.key][lb.key];
+      rows += '<td style="text-align:center;font-weight:800;font-size:15px;color:'+lb.color+';">'+v+'</td>';
+    });
+    rows += '</tr>';
+  });
+
+  var html = '<div style="overflow-x:auto;">'
+    + '<p style="font-size:13px;color:var(--g600);font-weight:700;margin-bottom:10px;">'+m+'월 요일별 야자 신청 현황 <span style="font-size:11px;color:var(--g400);">(야자1·야자2는 기숙사 학생 제외)</span></p>'
+    + '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:var(--shadow);">'
+    + '<thead><tr style="background:var(--navy);color:#fff;">'+thCols+'</tr></thead>'
+    + '<tbody>'+rows+'</tbody>'
+    + '</table></div>';
+
+  document.getElementById('yaja-total-body').innerHTML = html;
+}
 
 function renderRateTable(){
   const m=yajaMonth;
