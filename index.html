@@ -691,6 +691,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
       <button class="btn btn-outline btn-sm" onclick="printSeoksiDetail(null)">🖨 전체 인쇄</button>
       <button class="btn btn-green btn-sm" onclick="openSeoksiPrintModal()">🖨 학급별 인쇄</button>
+      <button class="btn btn-outline btn-sm" onclick="exportSeoksiCsv()">⬇ CSV 다운로드</button>
     </div>
   </div>
   <div class="month-nav no-print">
@@ -2705,6 +2706,23 @@ function isSeoksiApplied(cls, i) {
   if (!d) return false;
   if (typeof d === 'boolean') return d;
   return DOW_KEYS.some(function(k){ return d[k]; });
+}
+
+function exportSeoksiCsv() {
+  var rows = ['반,번호,이름'];
+  CLASSES.forEach(function(cls) {
+    getActiveStudents(cls).forEach(function(s) {
+      var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
+      if (i >= 0 && isSeoksiApplied(cls, i)) {
+        rows.push(cls + ',' + s.num + ',' + s.name);
+      }
+    });
+  });
+  var blob = new Blob(['\uFEFF' + rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = seoksiMonth + '월_석식신청_명단.csv';
+  a.click();
 }
 
 // 석식 월 단위 토글: ON이면 전 요일 true, OFF면 전 요일 false
