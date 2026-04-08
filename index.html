@@ -1329,9 +1329,34 @@ var afterSchoolMap = {
   thu: new Set(['1-3-1','1-6-14','1-7-6','1-7-11','1-7-20','1-1-3','1-1-13','1-1-20','1-2-7','1-2-18','1-2-22','1-4-6','1-4-12','1-4-20','1-5-6','1-5-11','1-5-17','1-5-20','1-6-3','1-6-16','1-6-18']),
   fri: new Set()
 };
+var afterSchoolExceptions = {};  // {cls: {num: {dow: true/false}}} — 방과후 추가(true)/삭제(false) 예외
+var afterSchoolP8Off = {};       // {cls: {num: {dow: true}}} — 방과후이지만 8교시 취소
+
 function hasAfterSchool(cls, num, dow) {
+  // 예외가 있으면 예외 우선
+  if (afterSchoolExceptions[cls] && afterSchoolExceptions[cls][num] !== undefined) {
+    var ex = afterSchoolExceptions[cls][num];
+    if (ex && ex[dow] !== undefined) return ex[dow];
+  }
   var s = afterSchoolMap[dow];
   return s ? s.has(cls + '-' + num) : false;
+}
+
+// 방과후이면서 8교시 자동 적용 여부 (P8Off 예외 반영)
+function isAfterAutoP8(cls, num, dow) {
+  return hasAfterSchool(cls, num, dow) &&
+    !(afterSchoolP8Off[cls] && afterSchoolP8Off[cls][num] && afterSchoolP8Off[cls][num][dow]);
+}
+
+function setAfterSchoolException(cls, num, dow, val) {
+  if (!afterSchoolExceptions[cls]) afterSchoolExceptions[cls] = {};
+  if (!afterSchoolExceptions[cls][num]) afterSchoolExceptions[cls][num] = {};
+  afterSchoolExceptions[cls][num][dow] = val;
+}
+function setAfterSchoolP8Off(cls, num, dow, val) {
+  if (!afterSchoolP8Off[cls]) afterSchoolP8Off[cls] = {};
+  if (!afterSchoolP8Off[cls][num]) afterSchoolP8Off[cls][num] = {};
+  afterSchoolP8Off[cls][num][dow] = val;
 }
 
 // ═══════════════════════════════════════════════
@@ -1812,7 +1837,7 @@ function renderYajaGrid(){
       var student = CLASS_STUDENTS[c][idx];
       var applied = false;
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && (hasAfterSchool(c, student.num, k) || isDormAutoP8(c, student.num, k, m));
+        var autoP8 = student && (isAfterAutoP8(c, student.num, k) || isDormAutoP8(c, student.num, k, m));
         if((s[k] && s[k].p8) || autoP8){ totals.p8++; dowCounts[k].p8++; applied=true; }
         if(s[k] && s[k].y1){ totals.y1++; dowCounts[k].y1++; applied=true; }
         if(s[k] && s[k].y2){ totals.y2++; dowCounts[k].y2++; applied=true; }
@@ -1867,7 +1892,7 @@ function renderYajaGrid(){
     d.forEach(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
+        var autoP8 = student && (isAfterAutoP8(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
         if((s[k]&&s[k].p8)||autoP8) clsDowCounts[k].p8++;
         if(s[k]&&s[k].y1) clsDowCounts[k].y1++;
         if(s[k]&&s[k].y2) clsDowCounts[k].y2++;
@@ -1877,7 +1902,7 @@ function renderYajaGrid(){
     var clsUniq = d.filter(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       return DOW_KEYS.some(function(k){
-        var autoP8 = student && (hasAfterSchool(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
+        var autoP8 = student && (isAfterAutoP8(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
         return (s[k]&&(s[k].p8||s[k].y1||s[k].y2)) || autoP8;
       });
     }).length;
@@ -1961,12 +1986,13 @@ function renderStudentTable(cls){
     var dayData = (allData[i] && allData[i][dow]) ? allData[i][dow] : {p8:false,y1:false,y2:false};
     var isAfter = hasAfterSchool(cls, s.num, dow);
     var isDorm  = isDormStudent(cls, s.num);
-    var autoP8  = isAfter || isDormAutoP8(cls, s.num, dow);
+    var autoP8  = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
     var p8c = (dayData.p8 || autoP8) ? 'checked' : '';
     var y1c = dayData.y1 ? 'checked' : '';
     var y2c = dayData.y2 ? 'checked' : '';
     var badge = '';
-    if (isAfter) badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;">(방과후)</span>';
+    if (isAfter) badge += '<span onclick="toggleAfterSchool('+i+')" title="클릭하여 방과후 삭제" style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;cursor:pointer;">(방과후) ✕</span>';
+    else badge += '<span onclick="toggleAfterSchool('+i+')" title="클릭하여 방과후 추가" style="font-size:10px;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:4px;white-space:nowrap;display:inline-block;cursor:pointer;">+방과후</span>';
     if (isDorm)  badge += '<span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;">(기숙사)</span>';
     rows += '<tr>'
       + '<td><span class="num-cell">'+s.num+'</span>'+s.name+badge+'</td>'
@@ -1994,9 +2020,9 @@ function toggleYaja(i,field,val){
   else if(field==='p8'){
     d.p8=val;
     if(!val){d.y1=false;d.y2=false;}
-    // 기숙사 학생 예외 처리
     var _st = CLASS_STUDENTS[cls] && CLASS_STUDENTS[cls][i];
     if (_st && isDormStudent(cls, _st.num)) setDormException(cls, _st.num, dow, !val);
+    if (_st && hasAfterSchool(cls, _st.num, dow)) setAfterSchoolP8Off(cls, _st.num, dow, !val);
   }
   ['p8','y1','y2'].forEach(f=>{const el=document.getElementById(`${f}-${i}`);if(el)el.checked=d[f];});
   updateStudentSummary();renderYajaGrid();
@@ -2011,7 +2037,7 @@ function updateStudentSummary(){
     var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
     if(i<0) return;
     var d = (allData[i]&&allData[i][dow]) ? allData[i][dow] : {};
-    var autoP8 = hasAfterSchool(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
+    var autoP8 = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
     if(d.p8 || autoP8) p8++; if(d.y1) y1++; if(d.y2) y2++;
   });
   document.getElementById('student-summary').innerHTML=
@@ -2019,6 +2045,21 @@ function updateStudentSummary(){
    +'<span class="count-badge" style="background:#dcfce7;color:#166534">야자1 '+y1+'명</span>'
    +'<span class="count-badge" style="background:#dbeafe;color:#1e40af">야자2 '+y2+'명</span>';
 }
+function toggleAfterSchool(i) {
+  var cls = currentYajaClass, dow = currentYajaDow;
+  var _st = CLASS_STUDENTS[cls] && CLASS_STUDENTS[cls][i];
+  if (!_st) return;
+  var cur = hasAfterSchool(cls, _st.num, dow);
+  setAfterSchoolException(cls, _st.num, dow, !cur);
+  // 방과후 삭제 시 P8Off 예외도 제거
+  if (cur && afterSchoolP8Off[cls] && afterSchoolP8Off[cls][_st.num]) {
+    delete afterSchoolP8Off[cls][_st.num][dow];
+  }
+  renderStudentTable(cls);
+  renderYajaGrid();
+  scheduleSave();
+}
+
 function closeStudentModal(){
   document.getElementById('modal-students').classList.remove('open');
   currentYajaClass=null;renderYajaGrid();
@@ -2202,9 +2243,9 @@ function renderYajaStatusTable() {
     var yaja = yajaData[m][cls];
     var clsAtt = att[cls];
     var _attDow = attendDateToDow(attendDate);
-    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormAutoP8(cls,s.num,_attDow)||hasAfterSchool(cls,s.num,_attDow); });
+    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormAutoP8(cls,s.num,_attDow)||isAfterAutoP8(cls,s.num,_attDow); });
     var cc = {
-      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormAutoP8(cls,s.num,_attDow)||hasAfterSchool(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
+      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormAutoP8(cls,s.num,_attDow)||isAfterAutoP8(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
       y1: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y1;}).length, ok: clsAtt.y1.filter(Boolean).length},
       y2: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y2;}).length, ok: clsAtt.y2.filter(Boolean).length}
     };
@@ -2227,7 +2268,7 @@ function renderYajaStatusTable() {
         var d = _dd;
         var _isAfter = hasAfterSchool(cls, s.num, _attDow);
         var _isDorm  = isDormStudent(cls, s.num);
-        var _autoP8  = _isAfter || isDormAutoP8(cls, s.num, _attDow);
+        var _autoP8  = isAfterAutoP8(cls, s.num, _attDow) || isDormAutoP8(cls, s.num, _attDow);
         if (!d.p8 && !d.y1 && !d.y2 && !_autoP8) return;
         var allOk = (!(d.p8||_autoP8)||clsAtt.p8[i]) && (!d.y1||clsAtt.y1[i]) && (!d.y2||clsAtt.y2[i]);
         var mkChk = function(p) {
@@ -2551,7 +2592,7 @@ function renderYajaTotalTable() {
       var _isDorm = isDormStudent(cls, s.num);
       dowList.forEach(function(d) {
         var entry = yajaData[m][cls][i] && yajaData[m][cls][i][d.key];
-        var _autoP8 = isDormAutoP8(cls, s.num, d.key) || hasAfterSchool(cls, s.num, d.key);
+        var _autoP8 = isDormAutoP8(cls, s.num, d.key) || isAfterAutoP8(cls, s.num, d.key);
         if (entry && entry.p8 || _autoP8) clsTot[d.key].p8++;
         // 야자1·야자2: 기숙사 학생 제외
         if (!_isDorm) {
@@ -4392,7 +4433,9 @@ function collectSaveData() {
     studentRoster: studentRoster, scheduleData: scheduleData, jumperData: jumperData, appPeriod: appPeriod, volunteerData: volunteerData,
     dormStudents: dormStudents,
     absentReasons: absentReasons,
-    dormExceptions: dormExceptions
+    dormExceptions: dormExceptions,
+    afterSchoolExceptions: afterSchoolExceptions,
+    afterSchoolP8Off: afterSchoolP8Off
   });
 }
 
@@ -5104,6 +5147,9 @@ function loadFromSheet() {
             });
           });
         }
+        // 방과후 예외 복원
+        if (r.afterSchoolExceptions) afterSchoolExceptions = r.afterSchoolExceptions;
+        if (r.afterSchoolP8Off) afterSchoolP8Off = r.afterSchoolP8Off;
         // 신청 기간 복원
         if (r.appPeriod) {
           appPeriod = {start: r.appPeriod.start||'', end: r.appPeriod.end||''};
