@@ -5023,6 +5023,62 @@ function fixDateStr(d) {
   return d;
 }
 
+// GAS → Firebase 1회 마이그레이션
+function migrateFromGAS(overlay) {
+  console.log('[migrate] GAS에서 데이터 로드 후 Firebase로 저장');
+  showToast('⏳ 기존 데이터를 GAS에서 불러오는 중...');
+  callApi('loadAllData').then(function(r) {
+    if (!r || !r.ok) {
+      overlay.style.display = 'none';
+      showToast('❌ GAS 로드 실패 — 데이터를 불러올 수 없습니다');
+      return;
+    }
+    // GAS 데이터를 Firebase에 저장
+    var updates = {};
+    if (r.yajaData) updates['yajaData'] = r.yajaData;
+    if (r.seoksiData) updates['seoksiData'] = r.seoksiData;
+    if (r.attendCheck) updates['attendCheck'] = r.attendCheck;
+    if (r.svData) updates['svData'] = r.svData;
+    if (r.svTeachersByMonth) updates['svTeachersByMonth'] = r.svTeachersByMonth;
+    if (r.svFridayTeachersByMonth) updates['svFridayTeachersByMonth'] = r.svFridayTeachersByMonth;
+    if (r.studentRoster) updates['studentRoster'] = r.studentRoster;
+    if (r.scheduleData) updates['scheduleData'] = r.scheduleData;
+    if (r.jumperData) updates['jumperData'] = r.jumperData;
+    if (r.appPeriod) updates['appPeriod'] = r.appPeriod;
+    if (r.volunteerData) updates['volunteerData'] = r.volunteerData;
+    if (r.dormStudents) updates['dormStudents'] = r.dormStudents;
+    if (r.dormExceptions) updates['dormExceptions'] = r.dormExceptions;
+    if (r.afterSchoolExceptions) updates['afterSchoolExceptions'] = r.afterSchoolExceptions;
+    if (r.afterSchoolP8Off) updates['afterSchoolP8Off'] = r.afterSchoolP8Off;
+    // absentReasons: | → __ 키 변환
+    if (r.absentReasons) {
+      var fbAbsent = {};
+      Object.keys(r.absentReasons).forEach(function(m) {
+        fbAbsent[m] = {};
+        Object.keys(r.absentReasons[m]||{}).forEach(function(dateStr) {
+          fbAbsent[m][dateStr] = {};
+          Object.keys(r.absentReasons[m][dateStr]||{}).forEach(function(key) {
+            fbAbsent[m][dateStr][key.replace(/\|/g,'__')] = r.absentReasons[m][dateStr][key];
+          });
+        });
+      });
+      updates['absentReasons'] = fbAbsent;
+    }
+    fbRef('').update(updates).then(function() {
+      console.log('[migrate] Firebase 저장 완료 → 재로드');
+      showToast('✅ 기존 데이터를 Firebase로 이전 완료!');
+      // 저장 후 Firebase에서 다시 로드
+      loadFromSheet();
+    }).catch(function(e) {
+      overlay.style.display = 'none';
+      showToast('❌ Firebase 저장 실패: ' + e.message);
+    });
+  }).catch(function(e) {
+    overlay.style.display = 'none';
+    showToast('❌ GAS 연결 실패: ' + e.message);
+  });
+}
+
 function loadFromSheet() {
   var overlay = document.getElementById('loading-overlay');
   overlay.style.display = 'flex';
@@ -5034,7 +5090,14 @@ function loadFromSheet() {
   }, 15000);
   fbLoadAll(function(r) {
       clearTimeout(_timeout);
-      console.log('[loadFromSheet] Firebase 응답:', r ? 'ok' : 'empty');
+      // Firebase가 비어있으면 GAS에서 1회 마이그레이션
+      var isEmpty = !r || (!r.yajaData && !r.studentRoster && !r.svData);
+      if (isEmpty) {
+        console.log('[loadFromSheet] Firebase 비어있음 → GAS 마이그레이션 시작');
+        migrateFromGAS(overlay);
+        return;
+      }
+      console.log('[loadFromSheet] Firebase 응답: ok');
       try {
         if (!r) { overlay.style.display='none'; return; }
         // 야자 신청 (요일별 구조)
