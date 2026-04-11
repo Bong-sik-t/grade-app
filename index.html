@@ -630,7 +630,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   <div id="yaja-total" class="sub-section">
     <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;" class="no-print">
       <span style="font-size:14px;font-weight:800;color:var(--navy);">📊 요일별 신청 총계</span>
-      <span style="font-size:12px;color:var(--g400);">* 야자1·야자2는 기숙사 학생 제외</span>
+      <span style="font-size:12px;color:var(--g400);">* 야자2는 기숙사 학생 제외</span>
     </div>
     <div id="yaja-total-body"></div>
   </div>
@@ -1384,6 +1384,10 @@ function isDormAutoP8(cls, num, dow, month) {
   var exc = (dormExceptions[m]||{})[cls];
   return !(exc && exc[String(num)] && exc[String(num)][dow]);
 }
+// 기숙사 학생의 해당 요일 야자1 자동 적용 여부 (8교시 예외와 연동)
+function isDormAutoY1(cls, num, dow, month) {
+  return isDormAutoP8(cls, num, dow, month); // 8교시가 적용되면 야자1도 자동
+}
 
 function setDormException(cls, num, dow, val) {
   if (!dormExceptions[yajaMonth][cls]) dormExceptions[yajaMonth][cls] = {};
@@ -1849,8 +1853,9 @@ function renderYajaGrid(){
       var applied = false;
       DOW_KEYS.forEach(function(k){
         var autoP8 = student && (isAfterAutoP8(c, student.num, k) || isDormAutoP8(c, student.num, k, m));
+        var autoY1 = student && isDormAutoY1(c, student.num, k, m);
         if((s[k] && s[k].p8) || autoP8){ totals.p8++; dowCounts[k].p8++; applied=true; }
-        if(s[k] && s[k].y1){ totals.y1++; dowCounts[k].y1++; applied=true; }
+        if((s[k] && s[k].y1) || autoY1){ totals.y1++; dowCounts[k].y1++; applied=true; }
         if(s[k] && s[k].y2){ totals.y2++; dowCounts[k].y2++; applied=true; }
       });
       if(applied) uniqueApplied++;
@@ -1906,8 +1911,9 @@ function renderYajaGrid(){
       var student = CLASS_STUDENTS[cls][idx];
       DOW_KEYS.forEach(function(k){
         var autoP8 = student && (isAfterAutoP8(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
+        var autoY1 = student && isDormAutoY1(cls, student.num, k, m);
         if((s[k]&&s[k].p8)||autoP8) clsDowCounts[k].p8++;
-        if(s[k]&&s[k].y1) clsDowCounts[k].y1++;
+        if((s[k]&&s[k].y1)||autoY1) clsDowCounts[k].y1++;
         if(s[k]&&s[k].y2) clsDowCounts[k].y2++;
       });
     });
@@ -2000,8 +2006,9 @@ function renderStudentTable(cls){
     var isAfter = hasAfterSchool(cls, s.num, dow);
     var isDorm  = isDormStudent(cls, s.num);
     var autoP8  = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
+    var autoY1  = isDormAutoY1(cls, s.num, dow);
     var p8c = (dayData.p8 || autoP8) ? 'checked' : '';
-    var y1c = dayData.y1 ? 'checked' : '';
+    var y1c = (dayData.y1 || autoY1) ? 'checked' : '';
     var y2c = dayData.y2 ? 'checked' : '';
     var badge = '';
     if (isAfter) badge += '<span onclick="toggleAfterSchool('+i+')" title="클릭하여 방과후 삭제" style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;display:inline-block;cursor:pointer;">(방과후) ✕</span>';
@@ -2043,6 +2050,11 @@ function toggleYaja(i,field,val){
     if (_st && isDormStudent(cls, _st.num)) setDormException(cls, _st.num, dow, !val);
     if (_st && hasAfterSchool(cls, _st.num, dow)) setAfterSchoolP8Off(cls, _st.num, dow, !val);
   }
+  else if(field==='y1'){
+    var _st3 = CLASS_STUDENTS[cls] && CLASS_STUDENTS[cls][i];
+    // 기숙사 학생은 야자1 직접 해제 불가 (8교시 체크 해제로만 해제 가능)
+    if (_st3 && isDormAutoY1(cls, _st3.num, dow)) return;
+  }
   ['p8','y1','y2'].forEach(f=>{const el=document.getElementById(`${f}-${i}`);if(el)el.checked=d[f];});
   updateStudentSummary();renderYajaGrid();
 }
@@ -2057,7 +2069,8 @@ function updateStudentSummary(){
     if(i<0) return;
     var d = (allData[i]&&allData[i][dow]) ? allData[i][dow] : {};
     var autoP8 = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow);
-    if(d.p8 || autoP8) p8++; if(d.y1) y1++; if(d.y2) y2++;
+    var autoY1 = isDormAutoY1(cls, s.num, dow);
+    if(d.p8 || autoP8) p8++; if(d.y1 || autoY1) y1++; if(d.y2) y2++;
   });
   document.getElementById('student-summary').innerHTML=
     '<span class="count-badge" style="background:#ede9fe;color:#5b21b6">8교시 '+p8+'명</span>'
@@ -2234,12 +2247,16 @@ function renderYajaStatusTable() {
   // 전체 요약
   var tot = {p8:{a:0,ok:0}, y1:{a:0,ok:0}, y2:{a:0,ok:0}};
   CLASSES.forEach(function(cls) {
-    ['p8','y1','y2'].forEach(function(p) {
-      // attendDate 의 요일 키
-      var _dow = attendDateToDow(attendDate);
-      tot[p].a += yajaData[m][cls].filter(function(s){ return s[_dow]&&s[_dow][p]; }).length;
-      tot[p].ok += att[cls][p].filter(Boolean).length;
+    var _dow = attendDateToDow(attendDate);
+    CLASS_STUDENTS[cls].forEach(function(s, i) {
+      var _d = yajaData[m][cls][i] && yajaData[m][cls][i][_dow];
+      if ((_d&&_d.p8) || isDormAutoP8(cls,s.num,_dow) || isAfterAutoP8(cls,s.num,_dow)) tot.p8.a++;
+      if ((_d&&_d.y1) || isDormAutoY1(cls,s.num,_dow)) tot.y1.a++;
+      if (_d&&_d.y2) tot.y2.a++;
     });
+    tot.p8.ok += att[cls].p8.filter(Boolean).length;
+    tot.y1.ok += att[cls].y1.filter(Boolean).length;
+    tot.y2.ok += att[cls].y2.filter(Boolean).length;
   });
 
   document.getElementById('status-summary-bar').innerHTML =
@@ -2261,10 +2278,10 @@ function renderYajaStatusTable() {
     var yaja = yajaData[m][cls];
     var clsAtt = att[cls];
     var _attDow = attendDateToDow(attendDate);
-    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormAutoP8(cls,s.num,_attDow)||isAfterAutoP8(cls,s.num,_attDow); });
+    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isDormAutoP8(cls,s.num,_attDow)||isDormAutoY1(cls,s.num,_attDow)||isAfterAutoP8(cls,s.num,_attDow); });
     var cc = {
       p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isDormAutoP8(cls,s.num,_attDow)||isAfterAutoP8(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
-      y1: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y1;}).length, ok: clsAtt.y1.filter(Boolean).length},
+      y1: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].y1)||isDormAutoY1(cls,s.num,_attDow); }).length, ok: clsAtt.y1.filter(Boolean).length},
       y2: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y2;}).length, ok: clsAtt.y2.filter(Boolean).length}
     };
     bodyHtml += '<tr class="class-header-row">'
@@ -2619,12 +2636,11 @@ function renderYajaTotalTable() {
       dowList.forEach(function(d) {
         var entry = yajaData[m][cls][i] && yajaData[m][cls][i][d.key];
         var _autoP8 = isDormAutoP8(cls, s.num, d.key) || isAfterAutoP8(cls, s.num, d.key);
+        var _autoY1 = isDormAutoY1(cls, s.num, d.key);
         if (entry && entry.p8 || _autoP8) clsTot[d.key].p8++;
-        // 야자1·야자2: 기숙사 학생 제외
-        if (!_isDorm) {
-          if (entry && entry.y1) clsTot[d.key].y1++;
-          if (entry && entry.y2) clsTot[d.key].y2++;
-        }
+        // 야자1: 기숙사 자동 포함 / 야자2: 기숙사 제외
+        if ((entry && entry.y1) || _autoY1) clsTot[d.key].y1++;
+        if (!_isDorm && entry && entry.y2) clsTot[d.key].y2++;
       });
     });
 
@@ -2670,7 +2686,7 @@ function renderYajaTotalTable() {
   });
 
   var html = '<div style="overflow-x:auto;">'
-    + '<p style="font-size:13px;color:var(--g600);font-weight:700;margin-bottom:10px;">'+m+'월 요일별 야자 신청 현황 <span style="font-size:11px;color:var(--g400);">(야자1·야자2는 기숙사 학생 제외)</span></p>'
+    + '<p style="font-size:13px;color:var(--g600);font-weight:700;margin-bottom:10px;">'+m+'월 요일별 야자 신청 현황 <span style="font-size:11px;color:var(--g400);">(야자2는 기숙사 학생 제외)</span></p>'
     + '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:var(--shadow);">'
     + '<thead><tr style="background:var(--navy);color:#fff;">'+thCols+'</tr></thead>'
     + '<tbody>'+rows+'</tbody>'
