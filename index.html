@@ -2016,8 +2016,10 @@ function renderStudentTable(cls){
       + '<input type="checkbox" id="y1-'+i+'" '+y1c+' onchange="toggleYaja('+i+',&quot;y1&quot;,this.checked)">'
       + '<label for="y1-'+i+'"></label></div></td>'
       + '<td><div class="period-check y2-check">'
-      + '<input type="checkbox" id="y2-'+i+'" '+y2c+' onchange="toggleYaja('+i+',&quot;y2&quot;,this.checked)">'
-      + '<label for="y2-'+i+'"></label></div></td>'
+      + (isDorm
+          ? '<input type="checkbox" id="y2-'+i+'" disabled title="기숙사 학생은 야자2 불가"><label for="y2-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
+          : '<input type="checkbox" id="y2-'+i+'" '+y2c+' onchange="toggleYaja('+i+',&quot;y2&quot;,this.checked)"><label for="y2-'+i+'"></label>')
+      + '</div></td>'
       + '</tr>';
   });
   document.getElementById('student-tbody').innerHTML = rows;
@@ -2028,7 +2030,11 @@ function toggleYaja(i,field,val){
   if(!yajaData[yajaMonth][cls][i]) yajaData[yajaMonth][cls][i]={};
   if(!yajaData[yajaMonth][cls][i][dow]) yajaData[yajaMonth][cls][i][dow]={p8:false,y1:false,y2:false};
   var d=yajaData[yajaMonth][cls][i][dow];
-  if(field==='y2'){d.y2=val;if(val){d.y1=true;d.p8=true;}}
+  if(field==='y2'){
+    var _st2 = CLASS_STUDENTS[cls] && CLASS_STUDENTS[cls][i];
+    if (_st2 && isDormStudent(cls, _st2.num)) return; // 기숙사 학생은 야자2 불가
+    d.y2=val;if(val){d.y1=true;d.p8=true;}
+  }
   else if(field==='y1'){d.y1=val;if(val){d.p8=true;}if(!val&&d.y2)d.y2=false;}
   else if(field==='p8'){
     d.p8=val;
@@ -4368,7 +4374,19 @@ function uploadDormFile(input) {
         if (newDorm[cls].indexOf(stuNum) === -1) { newDorm[cls].push(stuNum); count++; }
       }
       dormStudents = newDorm;
-      _absentSyncPauseUntil = Date.now() + 8000; // 8초간 폴링 덮어씌움 방지
+      // 기숙사 학생 야자2 자동 초기화
+      Object.keys(dormStudents).forEach(function(cls) {
+        (dormStudents[cls] || []).forEach(function(num) {
+          var i = CLASS_STUDENTS[cls] ? CLASS_STUDENTS[cls].findIndex(function(s){ return s.num === num; }) : -1;
+          if (i < 0) return;
+          Object.keys(yajaData).forEach(function(m) {
+            if (!yajaData[m] || !yajaData[m][cls] || !yajaData[m][cls][i]) return;
+            DOW_KEYS.forEach(function(dow) {
+              if (yajaData[m][cls][i][dow]) yajaData[m][cls][i][dow].y2 = false;
+            });
+          });
+        });
+      });
       statusEl.style.color = '#16a34a';
       statusEl.textContent = '✅ ' + count + '명 기숙사 학생 로드 완료 — 모든 요일 8교시 자동 적용됨';
       renderYajaGrid();
