@@ -16,6 +16,9 @@
 <script>/*! dom-to-image 10-06-2017 */
 !function(a){"use strict";function b(a,b){function c(a){return b.bgcolor&&(a.style.backgroundColor=b.bgcolor),b.width&&(a.style.width=b.width+"px"),b.height&&(a.style.height=b.height+"px"),b.style&&Object.keys(b.style).forEach(function(c){a.style[c]=b.style[c]}),a}return b=b||{},g(b),Promise.resolve(a).then(function(a){return i(a,b.filter,!0)}).then(j).then(k).then(c).then(function(c){return l(c,b.width||q.width(a),b.height||q.height(a))})}function c(a,b){return h(a,b||{}).then(function(b){return b.getContext("2d").getImageData(0,0,q.width(a),q.height(a)).data})}function d(a,b){return h(a,b||{}).then(function(a){return a.toDataURL()})}function e(a,b){return b=b||{},h(a,b).then(function(a){return a.toDataURL("image/jpeg",b.quality||1)})}function f(a,b){return h(a,b||{}).then(q.canvasToBlob)}function g(a){"undefined"==typeof a.imagePlaceholder?v.impl.options.imagePlaceholder=u.imagePlaceholder:v.impl.options.imagePlaceholder=a.imagePlaceholder,"undefined"==typeof a.cacheBust?v.impl.options.cacheBust=u.cacheBust:v.impl.options.cacheBust=a.cacheBust}function h(a,c){function d(a){var b=document.createElement("canvas");if(b.width=c.width||q.width(a),b.height=c.height||q.height(a),c.bgcolor){var d=b.getContext("2d");d.fillStyle=c.bgcolor,d.fillRect(0,0,b.width,b.height)}return b}return b(a,c).then(q.makeImage).then(q.delay(100)).then(function(b){var c=d(a);return c.getContext("2d").drawImage(b,0,0),c})}function i(a,b,c){function d(a){return a instanceof HTMLCanvasElement?q.makeImage(a.toDataURL()):a.cloneNode(!1)}function e(a,b,c){function d(a,b,c){var d=Promise.resolve();return b.forEach(function(b){d=d.then(function(){return i(b,c)}).then(function(b){b&&a.appendChild(b)})}),d}var e=a.childNodes;return 0===e.length?Promise.resolve(b):d(b,q.asArray(e),c).then(function(){return b})}function f(a,b){function c(){function c(a,b){function c(a,b){q.asArray(a).forEach(function(c){b.setProperty(c,a.getPropertyValue(c),a.getPropertyPriority(c))})}a.cssText?b.cssText=a.cssText:c(a,b)}c(window.getComputedStyle(a),b.style)}function d(){function c(c){function d(a,b,c){function d(a){var b=a.getPropertyValue("content");return a.cssText+" content: "+b+";"}function e(a){function b(b){return b+": "+a.getPropertyValue(b)+(a.getPropertyPriority(b)?" !important":"")}return q.asArray(a).map(b).join("; ")+";"}var f="."+a+":"+b,g=c.cssText?d(c):e(c);return document.createTextNode(f+"{"+g+"}")}var e=window.getComputedStyle(a,c),f=e.getPropertyValue("content");if(""!==f&&"none"!==f){var g=q.uid();b.className=b.className+" "+g;var h=document.createElement("style");h.appendChild(d(g,c,e)),b.appendChild(h)}}[":before",":after"].forEach(function(a){c(a)})}function e(){a instanceof HTMLTextAreaElement&&(b.innerHTML=a.value),a instanceof HTMLInputElement&&b.setAttribute("value",a.value)}function f(){b instanceof SVGElement&&(b.setAttribute("xmlns","http://www.w3.org/2000/svg"),b instanceof SVGRectElement&&["width","height"].forEach(function(a){var c=b.getAttribute(a);c&&b.style.setProperty(a,c)}))}return b instanceof Element?Promise.resolve().then(c).then(d).then(e).then(f).then(function(){return b}):b}return c||!b||b(a)?Promise.resolve(a).then(d).then(function(c){return e(a,c,b)}).then(function(b){return f(a,b)}):Promise.resolve()}function j(a){return s.resolveAll().then(function(b){var c=document.createElement("style");return a.appendChild(c),c.appendChild(document.createTextNode(b)),a})}function k(a){return t.inlineAll(a).then(function(){return a})}function l(a,b,c){return Promise.resolve(a).then(function(a){return a.setAttribute("xmlns","http://www.w3.org/1999/xhtml"),(new XMLSerializer).serializeToString(a)}).then(q.escapeXhtml).then(function(a){return'<foreignObject x="0" y="0" width="100%" height="100%">'+a+"</foreignObject>"}).then(function(a){return'<svg xmlns="http://www.w3.org/2000/svg" width="'+b+'" height="'+c+'">'+a+"</svg>"}).then(function(a){return"data:image/svg+xml;charset=utf-8,"+a})}function m(){function a(){var a="application/font-woff",b="image/jpeg";return{woff:a,woff2:a,ttf:"application/font-truetype",eot:"application/vnd.ms-fontobject",png:"image/png",jpg:b,jpeg:b,gif:"image/gif",tiff:"image/tiff",svg:"image/svg+xml"}}function b(a){var b=/\.([^\.\/]*?)$/g.exec(a);return b?b[1]:""}function c(c){var d=b(c).toLowerCase();return a()[d]||""}function d(a){return a.search(/^(data:)/)!==-1}function e(a){return new Promise(function(b){for(var c=window.atob(a.toDataURL().split(",")[1]),d=c.length,e=new Uint8Array(d),f=0;f<d;f++)e[f]=c.charCodeAt(f);b(new Blob([e],{type:"image/png"}))})}function f(a){return a.toBlob?new Promise(function(b){a.toBlob(b)}):e(a)}function g(a,b){var c=document.implementation.createHTMLDocument(),d=c.createElement("base");c.head.appendChild(d);var e=c.createElement("a");return c.body.appendChild(e),d.href=b,e.href=a,e.href}function h(){var a=0;return function(){function b(){return("0000"+(Math.random()*Math.pow(36,4)<<0).toString(36)).slice(-4)}return"u"+b()+a++}}function i(a){return new Promise(function(b,c){var d=new Image;d.onload=function(){b(d)},d.onerror=c,d.src=a})}function j(a){var b=3e4;return v.impl.options.cacheBust&&(a+=(/\?/.test(a)?"&":"?")+(new Date).getTime()),new Promise(function(c){function d(){if(4===g.readyState){if(200!==g.status)return void(h?c(h):f("cannot fetch resource: "+a+", status: "+g.status));var b=new FileReader;b.onloadend=function(){var a=b.result.split(/,/)[1];c(a)},b.readAsDataURL(g.response)}}function e(){h?c(h):f("timeout of "+b+"ms occured while fetching resource: "+a)}function f(a){console.error(a),c("")}var g=new XMLHttpRequest;g.onreadystatechange=d,g.ontimeout=e,g.responseType="blob",g.timeout=b,g.open("GET",a,!0),g.send();var h;if(v.impl.options.imagePlaceholder){var i=v.impl.options.imagePlaceholder.split(/,/);i&&i[1]&&(h=i[1])}})}function k(a,b){return"data:"+b+";base64,"+a}function l(a){return a.replace(/([.*+?^${}()|\[\]\/\\])/g,"\\$1")}function m(a){return function(b){return new Promise(function(c){setTimeout(function(){c(b)},a)})}}function n(a){for(var b=[],c=a.length,d=0;d<c;d++)b.push(a[d]);return b}function o(a){return a.replace(/#/g,"%23").replace(/\n/g,"%0A")}function p(a){var b=r(a,"border-left-width"),c=r(a,"border-right-width");return a.scrollWidth+b+c}function q(a){var b=r(a,"border-top-width"),c=r(a,"border-bottom-width");return a.scrollHeight+b+c}function r(a,b){var c=window.getComputedStyle(a).getPropertyValue(b);return parseFloat(c.replace("px",""))}return{escape:l,parseExtension:b,mimeType:c,dataAsUrl:k,isDataUrl:d,canvasToBlob:f,resolveUrl:g,getAndEncode:j,uid:h(),delay:m,asArray:n,escapeXhtml:o,makeImage:i,width:p,height:q}}function n(){function a(a){return a.search(e)!==-1}function b(a){for(var b,c=[];null!==(b=e.exec(a));)c.push(b[1]);return c.filter(function(a){return!q.isDataUrl(a)})}function c(a,b,c,d){function e(a){return new RegExp("(url\\(['\"]?)("+q.escape(a)+")(['\"]?\\))","g")}return Promise.resolve(b).then(function(a){return c?q.resolveUrl(a,c):a}).then(d||q.getAndEncode).then(function(a){return q.dataAsUrl(a,q.mimeType(b))}).then(function(c){return a.replace(e(b),"$1"+c+"$3")})}function d(d,e,f){function g(){return!a(d)}return g()?Promise.resolve(d):Promise.resolve(d).then(b).then(function(a){var b=Promise.resolve(d);return a.forEach(function(a){b=b.then(function(b){return c(b,a,e,f)})}),b})}var e=/url\(['"]?([^'"]+?)['"]?\)/g;return{inlineAll:d,shouldProcess:a,impl:{readUrls:b,inline:c}}}function o(){function a(){return b(document).then(function(a){return Promise.all(a.map(function(a){return a.resolve()}))}).then(function(a){return a.join("\n")})}function b(){function a(a){return a.filter(function(a){return a.type===CSSRule.FONT_FACE_RULE}).filter(function(a){return r.shouldProcess(a.style.getPropertyValue("src"))})}function b(a){var b=[];return a.forEach(function(a){try{q.asArray(a.cssRules||[]).forEach(b.push.bind(b))}catch(c){console.log("Error while reading CSS rules from "+a.href,c.toString())}}),b}function c(a){return{resolve:function(){var b=(a.parentStyleSheet||{}).href;return r.inlineAll(a.cssText,b)},src:function(){return a.style.getPropertyValue("src")}}}return Promise.resolve(q.asArray(document.styleSheets)).then(b).then(a).then(function(a){return a.map(c)})}return{resolveAll:a,impl:{readAll:b}}}function p(){function a(a){function b(b){return q.isDataUrl(a.src)?Promise.resolve():Promise.resolve(a.src).then(b||q.getAndEncode).then(function(b){return q.dataAsUrl(b,q.mimeType(a.src))}).then(function(b){return new Promise(function(c,d){a.onload=c,a.onerror=d,a.src=b})})}return{inline:b}}function b(c){function d(a){var b=a.style.getPropertyValue("background");return b?r.inlineAll(b).then(function(b){a.style.setProperty("background",b,a.style.getPropertyPriority("background"))}).then(function(){return a}):Promise.resolve(a)}return c instanceof Element?d(c).then(function(){return c instanceof HTMLImageElement?a(c).inline():Promise.all(q.asArray(c.childNodes).map(function(a){return b(a)}))}):Promise.resolve(c)}return{inlineAll:b,impl:{newImage:a}}}var q=m(),r=n(),s=o(),t=p(),u={imagePlaceholder:void 0,cacheBust:!1},v={toSvg:b,toPng:d,toJpeg:e,toBlob:f,toPixelData:c,impl:{fontFaces:s,images:t,util:q,inliner:r,options:{}}};"undefined"!=typeof module?module.exports=v:a.domtoimage=v}(this);</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="firebase-ready.js"></script>
 <style>
 #loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:18px;}
 .spinner{width:48px;height:48px;border:5px solid #e2e8f0;border-top-color:#1e3a5f;border-radius:50%;animation:spin .8s linear infinite;}
@@ -2142,53 +2145,52 @@ function selectAttendDate(ds) {
   attendDate = ds;
   buildAttendDateBtns();
   renderYajaStatusTable();
-  syncAbsentReasons();
-}
-
-// 불참사유 실시간 동기화
-var _absentSyncTimer = null;
-var _absentSyncPauseUntil = 0;  // 로컬 저장 후 폴링 일시정지 타임스탬프
-function syncAbsentReasons(callback) {
-  if (Date.now() < _absentSyncPauseUntil) return;  // 저장 직후 5초간 폴링 스킵
-  callApi('loadAbsentReasons')
-    .then(function(r) {
-      if (!r || !r.ok) return;
-      if (Date.now() < _absentSyncPauseUntil) return;  // in-flight 응답도 저장 직후엔 무시
-      var changed = false;
-
-      // ── 불참사유 동기화 ──
-      var incoming = r.absentReasons || {};
-      Object.keys(incoming).forEach(function(m) {
-        var mi = Number(m);
-        if (!absentReasons[mi]) absentReasons[mi] = {};
-        Object.keys(incoming[m]||{}).forEach(function(dateStr) {
-          if (JSON.stringify(absentReasons[mi][dateStr]) !== JSON.stringify(incoming[m][dateStr])) {
-            absentReasons[mi][dateStr] = incoming[m][dateStr];
-            changed = true;
-          }
-        });
-        Object.keys(absentReasons[mi]||{}).forEach(function(dateStr) {
-          if (!(incoming[m] && incoming[m][dateStr])) {
-            delete absentReasons[mi][dateStr];
-            changed = true;
-          }
+  // 날짜 변경 시 해당 날짜 출석 구독 갱신
+  fbUnsubscribeByType('attend');
+  fbSubscribeAttend(yajaMonth, attendDate, function(data) {
+    var dayData = getAttendDay(yajaMonth, attendDate);
+    CLASSES.forEach(function(cls) {
+      ['p8','y1','y2'].forEach(function(p) {
+        var clsData = (data[cls] && data[cls][p]) || {};
+        CLASS_STUDENTS[cls].forEach(function(_, i) {
+          dayData[cls][p][i] = !!clsData[i];
         });
       });
-
-      // 기숙사 학생은 파일 업로드/페이지 로드 시에만 갱신 (폴링에서 제외)
-
-      if (changed) renderYajaStatusTable();
-      if (callback) callback();
-    })
-    .catch(function() {});
+    });
+    renderYajaStatusTable();
+  });
 }
+
+// 불참사유 실시간 구독 (Firebase)
+var _fbAttendUnsubscribed = false;
 function startAbsentPolling() {
-  stopAbsentPolling();
-  syncAbsentReasons();   // 탭 진입 시 즉시 1회
-  _absentSyncTimer = setInterval(syncAbsentReasons, 10000);  // 10초마다
+  // 출석 탭 진입 시: 해당 월 불참사유 구독
+  fbUnsubscribeByType('absent');
+  fbSubscribeAbsentReasons(yajaMonth, function(data) {
+    absentReasons[yajaMonth] = data;
+    renderYajaStatusTable();
+  });
+  // 선택된 날짜 출석 확인 실시간 구독
+  if (attendDate) {
+    fbUnsubscribeByType('attend');
+    fbSubscribeAttend(yajaMonth, attendDate, function(data) {
+      // Firebase attendCheck 데이터를 로컬 구조로 반영
+      var dayData = getAttendDay(yajaMonth, attendDate);
+      CLASSES.forEach(function(cls) {
+        ['p8','y1','y2'].forEach(function(p) {
+          var clsData = (data[cls] && data[cls][p]) || {};
+          CLASS_STUDENTS[cls].forEach(function(_, i) {
+            dayData[cls][p][i] = !!clsData[i];
+          });
+        });
+      });
+      renderYajaStatusTable();
+    });
+  }
 }
 function stopAbsentPolling() {
-  if (_absentSyncTimer) { clearInterval(_absentSyncTimer); _absentSyncTimer = null; }
+  fbUnsubscribeByType('absent');
+  fbUnsubscribeByType('attend');
 }
 
 function renderYajaStatusTable() {
@@ -2314,6 +2316,8 @@ function _touchChk(e, cls, p, i) {
 function toggleChk(cls, period, i) {
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
+  // Firebase: 해당 학생 출석만 즉시 저장 (동시 입력 충돌 방지)
+  fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i]);
   renderYajaStatusTable();
   if (document.getElementById('yaja-rate').classList.contains('active')) renderRateTable();
 }
@@ -2324,6 +2328,8 @@ function confirmClass(cls) {
     CLASS_STUDENTS[cls].forEach(function(s,i) { if(yaja[i][p]) att[cls][p][i]=true; });
   });
   renderYajaStatusTable();
+  // Firebase: 해당 반 출석 전체 저장
+  fbRef('attendCheck/'+yajaMonth+'/'+attendDate+'/'+cls).set(att[cls]);
   showToast('✅ '+cls+'반 전원 확인 ('+attendDate+')');
 }
 function confirmAllToday() {
@@ -2335,12 +2341,16 @@ function confirmAllToday() {
     });
   });
   renderYajaStatusTable();
+  // Firebase: 해당 날짜 전체 출석 저장
+  fbRef('attendCheck/'+yajaMonth+'/'+attendDate).set(att);
   showToast('✅ '+attendDate+' 전원 확인 완료');
 }
 function clearTodayAttend() {
   if (!confirm(attendDate+' 출석 확인을 초기화하시겠습니까?')) return;
   delete attendCheck[yajaMonth][attendDate];
   renderYajaStatusTable();
+  // Firebase: 해당 날짜 출석 삭제
+  fbRef('attendCheck/'+yajaMonth+'/'+attendDate).remove();
   showToast('🗑 '+attendDate+' 초기화 완료');
 }
 
@@ -2370,8 +2380,8 @@ function saveAbsentReason() {
   else delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
-  _absentSyncPauseUntil = Date.now() + 15000;
-  scheduleSave();
+  // Firebase: 해당 사유만 즉시 저장 (실시간 동기화)
+  fbSaveAbsentReason(t.month, t.date, _key, reason);
   showToast('✅ '+t.name+' 사유 저장 완료');
 }
 function deleteAbsentReason() {
@@ -2381,8 +2391,8 @@ function deleteAbsentReason() {
   if (absentReasons[t.month]&&absentReasons[t.month][t.date]) delete absentReasons[t.month][t.date][_key];
   closeModal('modal-absent-reason');
   renderYajaStatusTable();
-  _absentSyncPauseUntil = Date.now() + 15000;
-  scheduleSave();
+  // Firebase: 해당 사유만 즉시 삭제
+  fbSaveAbsentReason(t.month, t.date, _key, '');
   showToast('🗑 사유 삭제 완료');
 }
 
@@ -4666,11 +4676,40 @@ function scheduleSave() {
 function doSave() {
   if (_isSaving) { _pendingSave = true; return; }
   _isSaving = true; showSaveStatus('저장 중...');
-  callApi('saveAllData', [collectSaveData()])
-    .then(function(r) {
+  var d = JSON.parse(collectSaveData());
+  // attendCheck, absentReasons는 toggleChk/saveAbsentReason에서 경로별로 즉시 저장
+  // 나머지 데이터를 Firebase 경로별 업데이트
+  // Firebase 경로별 업데이트로 동시 편집 충돌 방지
+  var updates = {};
+  // 야자/석식: 반별 경로로 저장 → 다른 반 편집과 충돌 없음
+  Object.keys(d.yajaData || {}).forEach(function(m) {
+    Object.keys(d.yajaData[m] || {}).forEach(function(cls) {
+      updates['yajaData/' + m + '/' + cls] = d.yajaData[m][cls];
+    });
+  });
+  Object.keys(d.seoksiData || {}).forEach(function(m) {
+    Object.keys(d.seoksiData[m] || {}).forEach(function(cls) {
+      updates['seoksiData/' + m + '/' + cls] = d.seoksiData[m][cls];
+    });
+  });
+  // 나머지 (관리자 단독): 전체 경로 업데이트
+  updates['svData']                  = d.svData;
+  updates['svTeachersByMonth']       = d.svTeachersByMonth;
+  updates['svFridayTeachersByMonth'] = d.svFridayTeachersByMonth;
+  updates['studentRoster']           = d.studentRoster;
+  updates['scheduleData']            = d.scheduleData;
+  updates['jumperData']              = d.jumperData;
+  updates['appPeriod']               = d.appPeriod;
+  updates['volunteerData']           = d.volunteerData;
+  updates['dormStudents']            = d.dormStudents;
+  updates['dormExceptions']          = d.dormExceptions;
+  updates['afterSchoolExceptions']   = d.afterSchoolExceptions;
+  updates['afterSchoolP8Off']        = d.afterSchoolP8Off;
+  fbRef('').update(updates)
+    .then(function() {
       _isSaving = false;
       if (_pendingSave) { _pendingSave = false; doSave(); return; }
-      showSaveStatus(r.ok ? '✅ 저장됨' : '❌ 저장 실패: '+r.error, !r.ok);
+      showSaveStatus('✅ 저장됨');
     })
     .catch(function(e) { _isSaving = false; showSaveStatus('❌ 오류: '+e.message, true); });
 }
@@ -4987,18 +5026,17 @@ function fixDateStr(d) {
 function loadFromSheet() {
   var overlay = document.getElementById('loading-overlay');
   overlay.style.display = 'flex';
-  console.log('[loadFromSheet] 시작');
+  console.log('[loadFromSheet] Firebase 로드 시작');
   var _timeout = setTimeout(function() {
     console.warn('[loadFromSheet] 15초 타임아웃');
     overlay.style.display = 'none';
-    showToast('⚠️ 서버 응답 없음 — Apps Script 권한을 확인해주세요');
+    showToast('⚠️ Firebase 연결 실패 — 인터넷 연결을 확인해주세요');
   }, 15000);
-  callApi('loadAllData')
-    .then(function(r) {
+  fbLoadAll(function(r) {
       clearTimeout(_timeout);
-      console.log('[loadFromSheet] 응답:', r ? (r.ok ? 'ok' : 'fail:'+r.error) : 'null');
+      console.log('[loadFromSheet] Firebase 응답:', r ? 'ok' : 'empty');
       try {
-        if (!r || !r.ok) { overlay.style.display='none'; alert('데이터 로드 실패: '+(r?r.error:'응답 없음')); return; }
+        if (!r) { overlay.style.display='none'; return; }
         // 야자 신청 (요일별 구조)
         Object.keys(r.yajaData||{}).forEach(function(m) {
           Object.keys(r.yajaData[m]).forEach(function(cls) {
@@ -5127,13 +5165,17 @@ function loadFromSheet() {
             });
           });
         }
-        // 불참석 사유 복원
+        // 불참석 사유 복원 (Firebase 키: __ → | 복원)
         if (r.absentReasons) {
           Object.keys(r.absentReasons).forEach(function(m) {
             var mi = Number(m);
             if (!absentReasons[mi]) absentReasons[mi] = {};
             Object.keys(r.absentReasons[m]||{}).forEach(function(dateStr) {
-              absentReasons[mi][dateStr] = r.absentReasons[m][dateStr];
+              absentReasons[mi][dateStr] = {};
+              Object.keys(r.absentReasons[m][dateStr]||{}).forEach(function(safeKey) {
+                var key = safeKey.replace(/__/g, '|');
+                absentReasons[mi][dateStr][key] = r.absentReasons[m][dateStr][safeKey];
+              });
             });
           });
         }
@@ -5170,21 +5212,31 @@ function loadFromSheet() {
       } finally {
         overlay.style.display = 'none';
       }
-    })
-    .catch(function(e) {
-      clearTimeout(_timeout);
-      overlay.style.display = 'none';
-      console.error('[loadFromSheet] 서버 호출 실패:', e);
-      alert('불러오기 실패: '+e.message);
-    });
+  });
 }
 
 // 데이터 변경 함수에 자동저장 후킹
 (function(){
   var hooks = [
-    ['toggleYaja',          function(fn){ return function(i,f,v){ fn(i,f,v); scheduleSave(); }; }],
-    ['toggleSeoksi',        function(fn){ return function(c,i,v){ fn(c,i,v); scheduleSave(); }; }],
-    ['toggleChk',           function(fn){ return function(c,p,i){ fn(c,p,i); scheduleSave(); }; }],
+    // toggleYaja: 학생별-요일별 즉시 저장 (반별 충돌 방지)
+    ['toggleYaja', function(fn){ return function(i,f,v){
+      fn(i,f,v);
+      var cls=currentYajaClass, dow=currentYajaDow;
+      if(yajaData[yajaMonth]&&yajaData[yajaMonth][cls]&&yajaData[yajaMonth][cls][i]) {
+        fbSaveYajaOne(yajaMonth, cls, i, dow, yajaData[yajaMonth][cls][i][dow]);
+      }
+      scheduleSave();
+    }; }],
+    // toggleSeoksi: 학생별-요일별 즉시 저장
+    ['toggleSeoksi', function(fn){ return function(c,i,v){
+      fn(c,i,v);
+      var dow=currentSeoksiDow;
+      var val = seoksiData[seoksiMonth]&&seoksiData[seoksiMonth][c]&&seoksiData[seoksiMonth][c][i]
+                ? seoksiData[seoksiMonth][c][i][dow] : false;
+      fbSaveSeoksiOne(seoksiMonth, c, i, dow, val||false);
+      scheduleSave();
+    }; }],
+    ['toggleChk',           function(fn){ return function(c,p,i){ fn(c,p,i); /* fbSaveAttendOne은 toggleChk 내부에서 직접 호출 */ }; }],
     ['addSchedule',         function(fn){ return function(){ fn(); scheduleSave(); }; }],
     ['delSchedule',         function(fn){ return function(d,t){ fn(d,t); scheduleSave(); }; }],
     ['confirmAddStudent',   function(fn){ return function(){ fn(); scheduleSave(); }; }],
@@ -5203,7 +5255,8 @@ function loadFromSheet() {
 window.addEventListener('load', function() {
   console.log('[window.onload] init 시작');
   init();
-  console.log('[window.onload] loadFromSheet 호출');
+  console.log('[window.onload] Firebase 초기화 후 데이터 로드');
+  fbInit();
   loadFromSheet();
 });
 

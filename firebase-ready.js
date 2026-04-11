@@ -1,26 +1,16 @@
 // ============================================================
-// Firebase 연동 준비 파일
-// 사용자가 Firebase 프로젝트를 생성하면 아래 config를 채우고
-// index.html 상단의 USE_FIREBASE = false → true 로 변경
+// Firebase 연동
 // ============================================================
 
-// ① Firebase 콘솔(console.firebase.google.com)에서 프로젝트 생성 후
-//    프로젝트 설정 > 일반 > 내 앱 > 웹앱 추가 > 여기에 붙여넣기
 var FIREBASE_CONFIG = {
-  apiKey:            "FILL_IN",
-  authDomain:        "FILL_IN",
-  databaseURL:       "FILL_IN",   // Realtime Database URL
-  projectId:         "FILL_IN",
-  storageBucket:     "FILL_IN",
-  messagingSenderId: "FILL_IN",
-  appId:             "FILL_IN"
+  apiKey:            "AIzaSyDMUa0ot2GiOjyl3srznHpwrjR1-Er6idY",
+  authDomain:        "first-grade-app-75b91.firebaseapp.com",
+  databaseURL:       "https://first-grade-app-75b91-default-rtdb.firebaseio.com",
+  projectId:         "first-grade-app-75b91",
+  storageBucket:     "first-grade-app-75b91.firebasestorage.app",
+  messagingSenderId: "639317143626",
+  appId:             "1:639317143626:web:a4ba28c6df201ab2ce76b3"
 };
-
-// ============================================================
-// Firebase SDK 로드 (index.html <head>에 추가 예정)
-// ============================================================
-// <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-// <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 // ============================================================
 // Firebase 데이터 구조
@@ -28,7 +18,7 @@ var FIREBASE_CONFIG = {
 //   yajaData/{month}/{cls}/{studentIdx}/{dow}/{p8|y1|y2}
 //   seoksiData/{month}/{cls}/{studentIdx}/{dow}
 //   attendCheck/{month}/{dateStr}/{cls}/{p8|y1|y2}/{studentIdx}
-//   absentReasons/{month}/{dateStr}/{key}        ← 동시 입력 핵심
+//   absentReasons/{month}/{dateStr}/{key}
 //   svData/{month}/{key}/{name|isFri|skip|...}
 //   svTeachersByMonth/{month}/{idx}
 //   svFridayTeachersByMonth/{month}/{idx}
@@ -43,10 +33,6 @@ var FIREBASE_CONFIG = {
 //   volunteerData/{idx}/{...}
 // ============================================================
 
-// ============================================================
-// 기존 callApi() 대체 함수들
-// ============================================================
-
 var _db = null;
 var _fbListeners = [];  // 실시간 리스너 목록
 
@@ -57,6 +43,7 @@ function fbInit() {
 }
 
 function fbRef(path) {
+  if (path === '') return _db.ref('/1학년앱');
   return _db.ref('/1학년앱/' + path);
 }
 
@@ -68,66 +55,83 @@ function fbLoadAll(callback) {
   });
 }
 
-// ── 전체 저장 (기존 saveAllData 대체, 하위 호환용) ──
-function fbSaveAll(data) {
-  fbRef('').update(data);
+// ── 일반 데이터 저장 (출석/불참사유 제외) ──
+// updates: { 'yajaData': ..., 'seoksiData': ..., ... }
+function fbSaveData(updates) {
+  return fbRef('').update(updates);
 }
 
 // ── 출석 체크 단건 저장 (동시 입력 충돌 방지 핵심) ──
-// 기존: scheduleSave() → 전체 덮어쓰기
-// 변경: 해당 경로만 set → 다른 사람 데이터에 영향 없음
 function fbSaveAttendOne(month, dateStr, cls, period, idx, val) {
-  fbRef('attendCheck/' + month + '/' + dateStr + '/' + cls + '/' + period + '/' + idx).set(val);
+  var path = 'attendCheck/' + month + '/' + dateStr + '/' + cls + '/' + period + '/' + idx;
+  if (val) {
+    return fbRef(path).set(true);
+  } else {
+    return fbRef(path).remove();
+  }
 }
 
 // ── 불참사유 단건 저장 ──
 function fbSaveAbsentReason(month, dateStr, key, reason) {
-  var ref = fbRef('absentReasons/' + month + '/' + dateStr + '/' + key.replace(/\|/g, '__'));
-  if (reason) ref.set(reason);
-  else ref.remove();
+  var safeKey = key.replace(/\|/g, '__');
+  var ref = fbRef('absentReasons/' + month + '/' + dateStr + '/' + safeKey);
+  if (reason) return ref.set(reason);
+  else return ref.remove();
 }
 
-// ── 실시간 출석/불참사유 구독 (폴링 대체) ──
+// ── 야자 신청 단건 저장 (학생별-요일별) ──
+function fbSaveYajaOne(month, cls, idx, dow, val) {
+  return fbRef('yajaData/' + month + '/' + cls + '/' + idx + '/' + dow).set(val);
+}
+
+// ── 석식 신청 단건 저장 ──
+function fbSaveSeoksiOne(month, cls, idx, dow, val) {
+  return fbRef('seoksiData/' + month + '/' + cls + '/' + idx + '/' + dow).set(val);
+}
+
+// ── 감독표 단건 저장 ──
+function fbSaveSvOne(month, key, val) {
+  return fbRef('svData/' + month + '/' + key).set(val);
+}
+
+// ── 실시간 출석 구독 (날짜별) ──
 function fbSubscribeAttend(month, dateStr, onUpdate) {
   var ref = fbRef('attendCheck/' + month + '/' + dateStr);
   var listener = ref.on('value', function(snap) {
     onUpdate(snap.val() || {});
   });
-  _fbListeners.push({ ref: ref, listener: listener });
+  _fbListeners.push({ ref: ref, listener: listener, type: 'attend' });
 }
 
+// ── 실시간 불참사유 구독 (월별) ──
 function fbSubscribeAbsentReasons(month, onUpdate) {
   var ref = fbRef('absentReasons/' + month);
   var listener = ref.on('value', function(snap) {
-    onUpdate(snap.val() || {});
+    // Firebase key: __ → | 복원
+    var raw = snap.val() || {};
+    var result = {};
+    Object.keys(raw).forEach(function(dateStr) {
+      result[dateStr] = {};
+      Object.keys(raw[dateStr] || {}).forEach(function(safeKey) {
+        var key = safeKey.replace(/__/g, '|');
+        result[dateStr][key] = raw[dateStr][safeKey];
+      });
+    });
+    onUpdate(result);
   });
-  _fbListeners.push({ ref: ref, listener: listener });
+  _fbListeners.push({ ref: ref, listener: listener, type: 'absent' });
 }
 
+// ── 특정 타입 리스너만 해제 ──
+function fbUnsubscribeByType(type) {
+  _fbListeners = _fbListeners.filter(function(l) {
+    if (l.type === type) { l.ref.off('value', l.listener); return false; }
+    return true;
+  });
+}
+
+// ── 전체 리스너 해제 ──
 function fbUnsubscribeAll() {
   _fbListeners.forEach(function(l) { l.ref.off('value', l.listener); });
   _fbListeners = [];
 }
-
-// ── 야자 신청 단건 저장 ──
-function fbSaveYajaOne(month, cls, idx, dow, val) {
-  fbRef('yajaData/' + month + '/' + cls + '/' + idx + '/' + dow).set(val);
-}
-
-// ── 감독표 단건 저장 ──
-function fbSaveSvOne(month, key, val) {
-  fbRef('svData/' + month + '/' + key).set(val);
-}
-
-// ============================================================
-// index.html 전환 시 변경 포인트 요약
-// ============================================================
-// 1. <head>에 Firebase SDK 스크립트 2개 추가
-// 2. USE_FIREBASE = true 설정
-// 3. window.onload 에서 loadFromSheet() → fbLoadAll(restoreAll) 변경
-// 4. toggleChk() 안의 scheduleSave() → fbSaveAttendOne() 변경
-// 5. saveAbsentReason() → fbSaveAbsentReason() 변경
-// 6. startAbsentPolling() → fbSubscribeAbsentReasons() 변경
-// 7. 나머지 scheduleSave() → fbSaveAll(collectSaveData()) 변경
-//    (야자신청, 석식 등은 동시입력 거의 없어서 기존 방식 유지 가능)
-// ============================================================
