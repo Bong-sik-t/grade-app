@@ -2174,6 +2174,7 @@ function selectAttendDate(ds) {
   // 날짜 변경 시 해당 날짜 출석 구독 갱신
   fbUnsubscribeByType('attend');
   fbSubscribeAttend(yajaMonth, attendDate, function(data) {
+    if (Date.now() < _attendPauseUntil) return;
     var dayData = getAttendDay(yajaMonth, attendDate);
     CLASSES.forEach(function(cls) {
       ['p8','y1','y2'].forEach(function(p) {
@@ -2187,6 +2188,8 @@ function selectAttendDate(ds) {
   });
 }
 
+// 출석 체크 클릭 후 Firebase 구독 덮어쓰기 방지 타이머
+var _attendPauseUntil = 0;
 // 불참사유 실시간 구독 (Firebase)
 var _fbAttendUnsubscribed = false;
 function startAbsentPolling() {
@@ -2200,7 +2203,7 @@ function startAbsentPolling() {
   if (attendDate) {
     fbUnsubscribeByType('attend');
     fbSubscribeAttend(yajaMonth, attendDate, function(data) {
-      // Firebase attendCheck 데이터를 로컬 구조로 반영
+      if (Date.now() < _attendPauseUntil) return;
       var dayData = getAttendDay(yajaMonth, attendDate);
       CLASSES.forEach(function(cls) {
         ['p8','y1','y2'].forEach(function(p) {
@@ -2346,7 +2349,8 @@ function _touchChk(e, cls, p, i) {
 function toggleChk(cls, period, i) {
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
-  // Firebase: 해당 학생 출석만 즉시 저장 (동시 입력 충돌 방지)
+  // 클릭 후 2초간 Firebase 구독 덮어쓰기 방지 (빠른 연속 클릭 시 마지막 체크가 회색 되는 문제 방지)
+  _attendPauseUntil = Date.now() + 2000;
   fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i]);
   renderYajaStatusTable();
   if (document.getElementById('yaja-rate').classList.contains('active')) renderRateTable();
