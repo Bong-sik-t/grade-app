@@ -2176,8 +2176,10 @@ function selectAttendDate(ds) {
   fbSubscribeAttend(yajaMonth, attendDate, _makeAttendCallback());
 }
 
-// Firebase 저장 중인 셀만 보호 (저장 완료 즉시 실시간 동기화 재개)
-var _pendingChecks = {}; // key: "cls|p|i" → 저장 중인 값
+// Firebase 저장 중인 셀만 보호
+var _pendingChecks = {};
+// iOS Safari onclick 이중 발동 방지
+var _lastToggleTime = {};
 
 function _makeAttendCallback() {
   return function(data) {
@@ -2342,13 +2344,20 @@ function _touchChk(e, cls, p, i) {
   toggleChk(cls, p, i);
 }
 function toggleChk(cls, period, i) {
+  var _key = cls+'|'+period+'|'+i;
+  var _now = Date.now();
+  // iOS Safari onclick 이중 발동 방지 (500ms 내 같은 셀 중복 무시)
+  if (_lastToggleTime[_key] && _now - _lastToggleTime[_key] < 500) return;
+  _lastToggleTime[_key] = _now;
+
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
-  // 저장 중인 셀 등록 → Firebase 구독이 이 셀만 덮어쓰지 않도록 보호
-  var _key = cls+'|'+period+'|'+i;
   _pendingChecks[_key] = att[cls][period][i];
   fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i])
-    .then(function() { delete _pendingChecks[_key]; })
+    .then(function() {
+      // 300ms 후 보호 해제 (Firebase onValue가 .then() 이후 오는 경우 대비)
+      setTimeout(function() { delete _pendingChecks[_key]; }, 300);
+    })
     .catch(function() { delete _pendingChecks[_key]; });
   renderYajaStatusTable();
   if (document.getElementById('yaja-rate').classList.contains('active')) renderRateTable();
