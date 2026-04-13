@@ -2173,48 +2173,43 @@ function selectAttendDate(ds) {
   renderYajaStatusTable();
   // 날짜 변경 시 해당 날짜 출석 구독 갱신
   fbUnsubscribeByType('attend');
-  fbSubscribeAttend(yajaMonth, attendDate, function(data) {
-    if (Date.now() < _attendPauseUntil) return;
+  fbSubscribeAttend(yajaMonth, attendDate, _makeAttendCallback());
+}
+
+// Firebase 저장 중인 셀만 보호 (저장 완료 즉시 실시간 동기화 재개)
+var _pendingChecks = {}; // key: "cls|p|i" → 저장 중인 값
+
+function _makeAttendCallback() {
+  return function(data) {
     var dayData = getAttendDay(yajaMonth, attendDate);
     CLASSES.forEach(function(cls) {
       ['p8','y1','y2'].forEach(function(p) {
         var clsData = (data[cls] && data[cls][p]) || {};
         CLASS_STUDENTS[cls].forEach(function(_, i) {
-          dayData[cls][p][i] = !!clsData[i];
+          var _key = cls+'|'+p+'|'+i;
+          if (_pendingChecks.hasOwnProperty(_key)) {
+            dayData[cls][p][i] = _pendingChecks[_key]; // 저장 중인 셀은 로컬값 유지
+          } else {
+            dayData[cls][p][i] = !!clsData[i];
+          }
         });
       });
     });
     renderYajaStatusTable();
-  });
+  };
 }
 
-// 출석 체크 클릭 후 Firebase 구독 덮어쓰기 방지 타이머
-var _attendPauseUntil = 0;
 // 불참사유 실시간 구독 (Firebase)
 var _fbAttendUnsubscribed = false;
 function startAbsentPolling() {
-  // 출석 탭 진입 시: 해당 월 불참사유 구독
   fbUnsubscribeByType('absent');
   fbSubscribeAbsentReasons(yajaMonth, function(data) {
     absentReasons[yajaMonth] = data;
     renderYajaStatusTable();
   });
-  // 선택된 날짜 출석 확인 실시간 구독
   if (attendDate) {
     fbUnsubscribeByType('attend');
-    fbSubscribeAttend(yajaMonth, attendDate, function(data) {
-      if (Date.now() < _attendPauseUntil) return;
-      var dayData = getAttendDay(yajaMonth, attendDate);
-      CLASSES.forEach(function(cls) {
-        ['p8','y1','y2'].forEach(function(p) {
-          var clsData = (data[cls] && data[cls][p]) || {};
-          CLASS_STUDENTS[cls].forEach(function(_, i) {
-            dayData[cls][p][i] = !!clsData[i];
-          });
-        });
-      });
-      renderYajaStatusTable();
-    });
+    fbSubscribeAttend(yajaMonth, attendDate, _makeAttendCallback());
   }
 }
 function stopAbsentPolling() {
@@ -2349,9 +2344,12 @@ function _touchChk(e, cls, p, i) {
 function toggleChk(cls, period, i) {
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
-  // 클릭 후 2초간 Firebase 구독 덮어쓰기 방지 (빠른 연속 클릭 시 마지막 체크가 회색 되는 문제 방지)
-  _attendPauseUntil = Date.now() + 2000;
-  fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i]);
+  // 저장 중인 셀 등록 → Firebase 구독이 이 셀만 덮어쓰지 않도록 보호
+  var _key = cls+'|'+period+'|'+i;
+  _pendingChecks[_key] = att[cls][period][i];
+  fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i])
+    .then(function() { delete _pendingChecks[_key]; })
+    .catch(function() { delete _pendingChecks[_key]; });
   renderYajaStatusTable();
   if (document.getElementById('yaja-rate').classList.contains('active')) renderRateTable();
 }
