@@ -5454,7 +5454,7 @@ function loadFromSheet() {
       fbSaveSeoksiOne(seoksiMonth, c, i, dow, val||false);
       scheduleSave();
     }; }],
-    ['toggleChk',           function(fn){ return function(c,p,i){ fn(c,p,i); /* fbSaveAttendOne은 toggleChk 내부에서 직접 호출 */ }; }],
+    // toggleChk: 내부에서 fbSaveAttendOne 직접 호출 (scheduleSave 불필요) — arguments 전체 전달 필수
     ['addSchedule',         function(fn){ return function(){ fn(); scheduleSave(); }; }],
     ['delSchedule',         function(fn){ return function(d,t){ fn(d,t); scheduleSave(); }; }],
     ['confirmAddStudent',   function(fn){ return function(){ fn(); scheduleSave(); }; }],
