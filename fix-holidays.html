@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>감독표 공휴일 교정 + 재생성</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Malgun Gothic',sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px 16px;}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);padding:32px 28px;width:100%;max-width:540px;}
+h1{font-size:20px;font-weight:900;color:#1e3a5f;margin-bottom:6px;}
+.sub{font-size:13px;color:#94a3b8;margin-bottom:24px;line-height:1.6;}
+
+/* phase */
+.phase{border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;margin-bottom:16px;}
+.phase-title{font-size:14px;font-weight:900;color:#334155;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.phase-num{width:22px;height:22px;border-radius:50%;background:#1e3a5f;color:#fff;font-size:11px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;}
+.phase-num.green{background:#16a34a;}
+
+/* fix list */
+.fix-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.fix-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1.5px solid #e2e8f0;font-size:12px;}
+.fix-item .date{font-weight:800;color:#334155;min-width:56px;}
+.fix-item .name{color:#dc2626;font-weight:700;min-width:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px;}
+.fix-item .arrow{color:#94a3b8;flex-shrink:0;}
+.fix-item .tgt{color:#16a34a;font-weight:700;}
+.fix-item .st{margin-left:auto;font-size:11px;color:#94a3b8;flex-shrink:0;}
+
+/* month select */
+.month-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.month-btn{padding:6px 12px;border-radius:20px;border:1.5px solid #e2e8f0;font-size:12px;font-weight:700;cursor:pointer;background:#f8fafc;color:#475569;transition:.15s;}
+.month-btn.active{background:#1e3a5f;color:#fff;border-color:#1e3a5f;}
+.month-btn.affected{border-color:#dc2626;color:#dc2626;}
+.month-btn.active.affected{background:#dc2626;color:#fff;}
+
+/* teacher list preview */
+.teacher-preview{background:#f8fafc;border-radius:8px;padding:12px;font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px;min-height:40px;}
+.teacher-preview b{color:#1e3a5f;}
+
+/* schedule preview */
+.schedule-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;}
+.schedule-table th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;}
+.schedule-table td{padding:6px 8px;border-bottom:1px solid #f1f5f9;}
+.schedule-table tr:last-child td{border:none;}
+.schedule-table .skip{color:#94a3b8;font-style:italic;}
+.schedule-table .fri{color:#7c3aed;font-weight:700;}
+
+/* count preview */
+.count-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.count-chip{padding:6px 12px;border-radius:20px;background:#f0fdf4;border:1.5px solid #bbf7d0;font-size:12px;font-weight:700;color:#16a34a;}
+.count-chip b{color:#134e4a;}
+
+/* btns */
+.btn{width:100%;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:800;cursor:pointer;transition:.2s;display:block;}
+.btn+.btn{margin-top:8px;}
+.btn-primary{background:#1e3a5f;color:#fff;}
+.btn-primary:hover:not(:disabled){background:#1e293b;}
+.btn-green{background:#16a34a;color:#fff;}
+.btn-green:hover:not(:disabled){background:#15803d;}
+.btn:disabled{background:#94a3b8;cursor:not-allowed;}
+.btn-sm{width:auto;padding:8px 16px;font-size:13px;border-radius:8px;}
+
+/* result */
+.result-box{display:none;margin-top:12px;padding:14px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;}
+.result-box.ok{background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;}
+.result-box.err{background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;}
+.log{margin-top:12px;background:#f1f5f9;border-radius:8px;padding:12px;font-size:11px;color:#475569;max-height:180px;overflow-y:auto;display:none;}
+.log div{padding:1px 0;line-height:1.7;}
+.back{display:block;text-align:center;margin-top:18px;font-size:13px;color:#7c3aed;text-decoration:none;font-weight:700;}
+.back:hover{text-decoration:underline;}
+.divider{border:none;border-top:1px solid #f1f5f9;margin:4px 0;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔧 감독표 공휴일 교정 + 재생성</h1>
+  <p class="sub">① 잘못 배정된 공휴일 교정 → ② 선생님 횟수 균등하게 재생성</p>
+
+  <!-- PHASE 1 -->
+  <div class="phase" id="phase1">
+    <div class="phase-title"><span class="phase-num">1</span> 공휴일 데이터 교정</div>
+    <div class="fix-list" id="fixList"></div>
+    <button class="btn btn-primary" id="fixBtn" onclick="runFix()">🔧 공휴일 교정 시작</button>
+    <div class="result-box" id="fixResult"></div>
+    <div class="log" id="fixLog"></div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase" id="phase2" style="opacity:.45;pointer-events:none;">
+    <div class="phase-title"><span class="phase-num green">2</span> 감독표 재생성 (선생님 횟수 균등 배분)</div>
+
+    <p style="font-size:12px;color:#64748b;margin-bottom:10px;">재생성할 달을 선택하세요. 빨간 테두리 = 공휴일 교정이 이뤄진 달</p>
+    <div class="month-row" id="monthRow"></div>
+
+    <div class="teacher-preview" id="teacherPreview">달을 선택하면 저장된 선생님 순번을 불러옵니다.</div>
+
+    <div id="previewArea" style="display:none;">
+      <p style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">📋 생성 예정 감독표</p>
+      <div id="schedulePreviewWrap" style="max-height:220px;overflow-y:auto;border-radius:8px;border:1px solid #e2e8f0;">
+        <table class="schedule-table" id="schedulePrev"></table>
+      </div>
+      <hr class="divider" style="margin:10px 0;">
+      <p style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">📊 예상 선생님 횟수</p>
+      <div class="count-grid" id="countPreview"></div>
+    </div>
+
+    <button class="btn btn-green" id="genBtn" onclick="runGenerate()" disabled>🔄 감독표 재생성 + 저장</button>
+    <div class="result-box" id="genResult"></div>
+    <div class="log" id="genLog"></div>
+  </div>
+
+  <a href="index.html" class="back">← 1학년 앱으로 돌아가기</a>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// Firebase 설정
+// ══════════════════════════════════════════
+var FB_CONFIG = {
+  apiKey:            "AIzaSyDMUa0ot2GiOjyl3srznHpwrjR1-Er6idY",
+  authDomain:        "first-grade-app-75b91.firebaseapp.com",
+  databaseURL:       "https://first-grade-app-75b91-default-rtdb.firebaseio.com",
+  projectId:         "first-grade-app-75b91",
+  storageBucket:     "first-grade-app-75b91.firebasestorage.app",
+  messagingSenderId: "639317143626",
+  appId:             "1:639317143626:web:a4ba28c6df201ab2ce76b3"
+};
+firebase.initializeApp(FB_CONFIG);
+var db = firebase.database();
+function fbRef(p){ return p ? db.ref('/1학년앱/'+p) : db.ref('/1학년앱'); }
+
+// ══════════════════════════════════════════
+// 공휴일·제외일 전체 목록 (index.html SV_SKIP_DATES와 동일)
+// ══════════════════════════════════════════
+var SKIP_DATES = new Set([
+  '2026-03-01','2026-03-02','2026-03-03','2026-03-04',
+  '2026-03-24',
+  '2026-04-27','2026-04-28','2026-04-29','2026-04-30',
+  '2026-05-01','2026-05-04','2026-05-05','2026-05-22','2026-05-25',
+  '2026-06-03','2026-06-04','2026-06-05',
+  '2026-06-30','2026-07-01','2026-07-02','2026-07-03',
+  '2026-07-17',
+  '2026-07-20','2026-07-21','2026-07-22','2026-07-23','2026-07-24',
+  '2026-07-27','2026-07-28','2026-07-29','2026-07-30','2026-07-31',
+  '2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07',
+  '2026-08-10','2026-08-11','2026-08-12','2026-08-13','2026-08-14',
+  '2026-08-17',
+  '2026-09-02',
+  '2026-09-24','2026-09-25',
+  '2026-10-01','2026-10-05','2026-10-09',
+  '2026-10-13','2026-10-14','2026-10-15','2026-10-16',
+  '2026-11-18','2026-11-19',
+  '2026-12-08','2026-12-09','2026-12-10','2026-12-11',
+  '2026-12-24','2026-12-25','2026-12-30','2026-12-31',
+]);
+
+var SKIP_REASONS = {
+  '2026-03-01':'삼일절','2026-03-02':'야자 시작 전','2026-03-03':'야자 시작 전','2026-03-04':'야자 시작 전',
+  '2026-03-24':'학력평가',
+  '2026-04-27':'중간고사','2026-04-28':'중간고사','2026-04-29':'중간고사','2026-04-30':'중간고사',
+  '2026-05-01':'노동절(재량)','2026-05-04':'재량휴업','2026-05-05':'어린이날',
+  '2026-05-22':'체육한마당','2026-05-25':'대체공휴일',
+  '2026-06-03':'임시공휴일','2026-06-04':'학력평가','2026-06-05':'문화체험일',
+  '2026-06-30':'기말고사','2026-07-01':'기말고사','2026-07-02':'기말고사','2026-07-03':'기말고사',
+  '2026-07-17':'제헌절','2026-07-20':'여름방학',
+  '2026-08-17':'대체공휴일',
+  '2026-09-02':'학력평가','2026-09-24':'추석연휴','2026-09-25':'추석',
+  '2026-10-01':'개천절','2026-10-05':'대체공휴일','2026-10-09':'한글날',
+  '2026-10-13':'중간고사','2026-10-14':'중간고사','2026-10-15':'중간고사','2026-10-16':'중간고사',
+  '2026-11-18':'수능 예비소집','2026-11-19':'대학수학능력시험',
+  '2026-12-08':'기말고사','2026-12-09':'기말고사','2026-12-10':'기말고사','2026-12-11':'기말고사',
+  '2026-12-24':'학예제','2026-12-25':'성탄절','2026-12-30':'겨울방학','2026-12-31':'겨울방학',
+};
+function getSkipReason(ds){ return SKIP_REASONS[ds]||'공휴일'; }
+function isSkipDate(ds){ return SKIP_DATES.has(ds); }
+
+// ══════════════════════════════════════════
+// Phase 1: 교정할 공휴일 목록 렌더
+// ══════════════════════════════════════════
+var HOLIDAYS = [
+  {month:3, day:1,  reason:'삼일절'},
+  {month:5, day:1,  reason:'노동절(재량)'},
+  {month:5, day:4,  reason:'재량휴업'},
+  {month:5, day:5,  reason:'어린이날'},
+  {month:5, day:25, reason:'대체공휴일'},
+  {month:6, day:3,  reason:'임시공휴일'},
+  {month:8, day:17, reason:'대체공휴일'},
+  {month:10,day:1,  reason:'개천절'},
+  {month:10,day:5,  reason:'대체공휴일'},
+  {month:10,day:9,  reason:'한글날'},
+  {month:12,day:25, reason:'성탄절'},
+];
+
+var listEl = document.getElementById('fixList');
+HOLIDAYS.forEach(function(h,i){
+  listEl.innerHTML +=
+    '<div class="fix-item" id="item'+i+'">'
+    +'<span class="date">'+h.month+'월 '+h.day+'일</span>'
+    +'<span class="name" id="name'+i+'">로딩 중...</span>'
+    +'<span class="arrow">→</span>'
+    +'<span class="tgt">🚫 '+h.reason+'</span>'
+    +'<span class="st" id="st'+i+'">대기</span>'
+    +'</div>';
+});
+
+// ══════════════════════════════════════════
+// 전역 상태
+// ══════════════════════════════════════════
+var _svData = {};              // 전체 svData (Firebase에서 로드)
+var _svTeachers = {};          // svTeachersByMonth
+var _svFriTeachers = {};       // svFridayTeachersByMonth
+var _affectedMonths = new Set(); // 교정된 월
+var _selectedMonth = null;
+var _pendingSchedule = null;   // 생성 예정 스케줄
+
+// ══════════════════════════════════════════
+// Phase 1: 교정 실행
+// ══════════════════════════════════════════
+function addLog(id, msg){
+  var log = document.getElementById(id);
+  log.style.display='block';
+  var d=document.createElement('div'); d.textContent=msg;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function setSt(i,msg,color){ var e=document.getElementById('st'+i); if(e){e.textContent=msg;e.style.color=color||'#94a3b8';} }
+function setName(i,msg){ var e=document.getElementById('name'+i); if(e) e.textContent=msg; }
+function showResult(id,type,msg){ var e=document.getElementById(id); e.className='result-box '+type; e.textContent=msg; e.style.display='block'; }
+
+async function runFix(){
+  var btn = document.getElementById('fixBtn');
+  btn.disabled=true; btn.textContent='⏳ 교정 중...';
+
+  try {
+    // ① Firebase 전체 읽기
+    addLog('fixLog','Firebase 데이터 로드 중...');
+    var snap = await fbRef('').once('value');
+    var r = snap.val() || {};
+    _svData = r.svData || {};
+    _svTeachers = r.svTeachersByMonth || {};
+    _svFriTeachers = r.svFridayTeachersByMonth || {};
+
+    // ② 현재 이름 표시
+    HOLIDAYS.forEach(function(h,i){
+      var mData = _svData[h.month] || _svData[String(h.month)] || {};
+      var key = h.month+'-'+h.day;
+      var sv = mData[key];
+      setName(i, sv ? (sv.name||'(이름 없음)') : '(없음)');
+    });
+
+    // ③ 교정
+    var fixed = 0, already = 0;
+    for(var i=0;i<HOLIDAYS.length;i++){
+      var h=HOLIDAYS[i];
+      var mKey = String(h.month);
+      var mData2 = _svData[h.month] || _svData[mKey] || {};
+      var key = h.month+'-'+h.day;
+      var sv = mData2[key];
+
+      if(!sv){ setSt(i,'없음','#94a3b8'); continue; }
+      if(sv.skip){ setSt(i,'✅ 이미 OK','#16a34a'); already++; continue; }
+
+      // 교정 필요
+      var newVal = {name:'', isFri:!!sv.isFri, skip:true, skipReason:h.reason};
+      await fbRef('svData/'+h.month+'/'+key).set(newVal);
+      if(!_svData[h.month]) _svData[h.month]={};
+      _svData[h.month][key] = newVal;
+      setSt(i,'✅ 교정됨','#16a34a');
+      _affectedMonths.add(h.month);
+      addLog('fixLog','['+h.month+'/'+h.day+'] '+sv.name+' → 🚫 '+h.reason);
+      fixed++;
+    }
+
+    showResult('fixResult','ok','✅ '+(fixed>0 ? fixed+'개 교정 완료! 이제 2단계로 진행하세요.' : '이미 모두 올바르게 처리되어 있습니다.'));
+    btn.textContent='✅ 교정 완료';
+    addLog('fixLog','교정: '+fixed+'개 / 이미OK: '+already+'개');
+
+    // Phase 2 활성화
+    activatePhase2();
+
+  } catch(e){
+    showResult('fixResult','err','❌ 오류: '+e.message);
+    btn.disabled=false; btn.textContent='🔧 공휴일 교정 시작';
+  }
+}
+
+// ══════════════════════════════════════════
+// Phase 2: 월 선택 + 선생님 미리보기
+// ══════════════════════════════════════════
+function activatePhase2(){
+  var p2 = document.getElementById('phase2');
+  p2.style.opacity='1'; p2.style.pointerEvents='auto';
+
+  var monthRow = document.getElementById('monthRow');
+  monthRow.innerHTML='';
+  [3,4,5,6,7,8,9,10,11,12].forEach(function(m){
+    var isAff = _affectedMonths.has(m);
+    var btn = document.createElement('button');
+    btn.className = 'month-btn'+(isAff?' affected':'');
+    btn.textContent = m+'월';
+    btn.onclick = function(){ selectMonth(m); };
+    btn.id = 'mbtn'+m;
+    monthRow.appendChild(btn);
+  });
+
+  // 교정된 달이 있으면 첫 번째 교정 달 자동 선택
+  if(_affectedMonths.size > 0){
+    selectMonth(Array.from(_affectedMonths)[0]);
+  }
+}
+
+function selectMonth(m){
+  _selectedMonth = m;
+  // 버튼 active 상태
+  [3,4,5,6,7,8,9,10,11,12].forEach(function(x){
+    var b=document.getElementById('mbtn'+x);
+    if(b){ b.classList.toggle('active', x===m); }
+  });
+
+  // 선생님 순번 표시
+  var wdT = arrFromObj(_svTeachers[m] || _svTeachers[String(m)]);
+  var friT = arrFromObj(_svFriTeachers[m] || _svFriTeachers[String(m)]);
+  var isSplit = m >= 4;
+
+  var prev = document.getElementById('teacherPreview');
+  if(!wdT.length){
+    prev.innerHTML = '⚠️ '+m+'월 선생님 순번이 저장되지 않았습니다.<br><small style="color:#94a3b8">앱에서 선생님 순번을 먼저 입력·저장한 뒤 이 파일을 다시 여세요.</small>';
+    document.getElementById('genBtn').disabled=true;
+    document.getElementById('previewArea').style.display='none';
+    return;
+  }
+
+  var html = '<b>월~목 순번:</b> '+wdT.join(', ');
+  if(isSplit && friT.length) html += '<br><b>금요일 순번:</b> '+friT.join(', ');
+  prev.innerHTML = html;
+
+  // 미리보기 생성
+  generatePreview(m, wdT, friT);
+}
+
+// ══════════════════════════════════════════
+// 핵심: 감독표 생성 알고리즘 (index.html generateSvCalendar와 동일 로직)
+// ══════════════════════════════════════════
+function arrFromObj(obj){
+  if(!obj) return [];
+  if(Array.isArray(obj)) return obj.filter(Boolean);
+  return Object.keys(obj).sort(function(a,b){return Number(a)-Number(b);}).map(function(k){return obj[k];}).filter(Boolean);
+}
+
+function getWeekdays(month){
+  var days=[], dim=new Date(2026,month,0).getDate();
+  for(var d=1;d<=dim;d++){
+    var dow=new Date(2026,month-1,d).getDay();
+    if(dow===0||dow===6) continue;
+    var ds='2026-'+pad(month)+'-'+pad(d);
+    if(isSkipDate(ds)) continue;
+    days.push({d:d, dow:dow, ds:ds});
+  }
+  return days;
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function buildSchedule(month, wdTeachers, friTeachers){
+  var isSplit = month >= 4;
+  var dates = getWeekdays(month);
+
+  // 이전 달 누적 횟수
+  var wdCounts={}, friCounts={};
+  wdTeachers.forEach(function(t){wdCounts[t]=0;});
+  if(isSplit) friTeachers.forEach(function(t){friCounts[t]=0;});
+
+  for(var pm=3; pm<month; pm++){
+    var mData = _svData[pm] || _svData[String(pm)] || {};
+    Object.keys(mData).forEach(function(key){
+      var sv=mData[key]; if(!sv||!sv.name||sv.skip) return;
+      if(isSplit && sv.isFri){
+        if(friCounts[sv.name]!==undefined) friCounts[sv.name]++;
+      } else {
+        if(wdCounts[sv.name]!==undefined) wdCounts[sv.name]++;
+      }
+    });
+  }
+
+  // 이전 달 마지막 배정자
+  var lastWd='', lastFri='';
+  if(month > 3){
+    var prev = _svData[month-1] || _svData[String(month-1)] || {};
+    var pKeys = Object.keys(prev).sort(function(a,b){return parseInt(a.split('-')[1])-parseInt(b.split('-')[1]);});
+    for(var pi=pKeys.length-1;pi>=0;pi--){
+      var ps=prev[pKeys[pi]];
+      if(ps&&ps.name&&!ps.skip){
+        if(isSplit&&ps.isFri){ if(!lastFri) lastFri=ps.name; }
+        else { if(!lastWd) lastWd=ps.name; }
+      }
+      if(lastWd && (!isSplit||lastFri)) break;
+    }
+  }
+
+  // 배정
+  var schedule = {};
+  dates.forEach(function(date){
+    var key = month+'-'+date.d;
+    var isFri = date.dow===5;
+
+    if(isSplit && isFri && friTeachers.length){
+      var minC = Math.min.apply(null, friTeachers.map(function(t){return friCounts[t];}));
+      var cands = friTeachers.filter(function(t){return friCounts[t]===minC;});
+      var asgn = cands.find(function(t){return t!==lastFri;}) || cands[0];
+      friCounts[asgn]++;
+      lastFri=asgn;
+      schedule[key]={name:asgn, isFri:true, skip:false};
+    } else {
+      var minC2 = Math.min.apply(null, wdTeachers.map(function(t){return wdCounts[t];}));
+      var cands2 = wdTeachers.filter(function(t){return wdCounts[t]===minC2;});
+      var asgn2 = cands2.find(function(t){return t!==lastWd;}) || cands2[0];
+      wdCounts[asgn2]++;
+      lastWd=asgn2;
+      schedule[key]={name:asgn2, isFri:isFri, skip:false};
+    }
+  });
+
+  // skip 날짜 추가
+  var dim2=new Date(2026,month,0).getDate();
+  for(var d2=1;d2<=dim2;d2++){
+    var dow2=new Date(2026,month-1,d2).getDay();
+    if(dow2===0||dow2===6) continue;
+    var ds2='2026-'+pad(month)+'-'+pad(d2);
+    if(isSkipDate(ds2)){
+      schedule[month+'-'+d2]={name:'',isFri:dow2===5,skip:true,skipReason:getSkipReason(ds2)};
+    }
+  }
+
+  return {schedule:schedule, wdCounts:wdCounts, friCounts:friCounts, isSplit:isSplit};
+}
+
+function generatePreview(m, wdT, friT){
+  var res = buildSchedule(m, wdT, friT);
+  _pendingSchedule = {month:m, schedule:res.schedule};
+
+  // 표 렌더
+  var DOW = ['일','월','화','수','목','금','토'];
+  var keys = Object.keys(res.schedule).sort(function(a,b){
+    return parseInt(a.split('-')[1])-parseInt(b.split('-')[1]);
+  });
+  var rows = '';
+  keys.forEach(function(key){
+    var sv = res.schedule[key];
+    var day = parseInt(key.split('-')[1]);
+    var dow = new Date(2026,m-1,day).getDay();
+    if(sv.skip){
+      rows += '<tr><td>'+m+'/'+day+' ('+DOW[dow]+')</td><td class="skip">🚫 '+sv.skipReason+'</td></tr>';
+    } else {
+      var cls = sv.isFri?'fri':'';
+      var icon = sv.isFri?'🔶 ':'';
+      rows += '<tr><td>'+m+'/'+day+' ('+DOW[dow]+')</td><td class="'+cls+'">'+icon+sv.name+'</td></tr>';
+    }
+  });
+  document.getElementById('schedulePrev').innerHTML =
+    '<tr><th>날짜</th><th>배정 선생님</th></tr>'+rows;
+
+  // 횟수 렌더
+  var chips = '';
+  Object.keys(res.wdCounts).forEach(function(name){
+    chips += '<div class="count-chip"><b>'+name+'</b> '+res.wdCounts[name]+'회 (월~목)</div>';
+  });
+  if(res.isSplit){
+    Object.keys(res.friCounts).forEach(function(name){
+      chips += '<div class="count-chip" style="background:#faf5ff;border-color:#ede9fe;color:#7c3aed;"><b>'+name+'</b> '+res.friCounts[name]+'회 (금)</div>';
+    });
+  }
+  document.getElementById('countPreview').innerHTML = chips;
+  document.getElementById('previewArea').style.display='block';
+  document.getElementById('genBtn').disabled=false;
+}
+
+// ══════════════════════════════════════════
+// Phase 2: 저장
+// ══════════════════════════════════════════
+async function runGenerate(){
+  if(!_pendingSchedule) return;
+  var btn=document.getElementById('genBtn');
+  btn.disabled=true; btn.textContent='⏳ 저장 중...';
+
+  try {
+    var m = _pendingSchedule.month;
+    addLog('genLog',m+'월 감독표 Firebase 저장 시작...');
+    await fbRef('svData/'+m).set(_pendingSchedule.schedule);
+    // 로컬 캐시도 갱신
+    _svData[m] = _pendingSchedule.schedule;
+    addLog('genLog','✅ 저장 완료!');
+    showResult('genResult','ok','✅ '+m+'월 감독표 재생성 + 저장 완료!\n이제 1학년 앱을 새로고침하면 반영됩니다.');
+    btn.textContent='✅ 저장 완료';
+
+    // 다른 달 재생성 가능하도록 버튼 복원
+    setTimeout(function(){
+      btn.disabled=false;
+      btn.textContent='🔄 감독표 재생성 + 저장';
+    }, 2000);
+  } catch(e){
+    showResult('genResult','err','❌ 오류: '+e.message);
+    btn.disabled=false; btn.textContent='🔄 감독표 재생성 + 저장';
+  }
+}
+</script>
+</body>
+</html>

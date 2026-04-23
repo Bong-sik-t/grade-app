@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grade1-app-v1';
+const CACHE_NAME = 'grade1-app-v3';
 const STATIC_ASSETS = [
   '/',
   '/student',

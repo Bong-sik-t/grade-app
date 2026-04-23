@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>2026학년도 1학년 앱</title>
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
@@ -170,12 +173,12 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 .attend-master-table tr.class-header-row td{background:var(--g100);font-weight:800;font-size:13px;padding:10px 12px;border-top:2px solid var(--navy);}
 .attend-master-table tr.class-header-row:first-child td{border-top:none;}
 .attend-master-table tr.all-confirmed td{background:#f0fdf4;}
-.chk{width:28px;height:28px;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.12s;border:2px solid var(--g200);user-select:none;font-size:13px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.chk{width:28px;height:28px;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.12s;border:2px solid var(--g200);user-select:none;font-size:13px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:transparent;padding:0;-webkit-appearance:none;appearance:none;}
 .chk:hover:not(.na){border-color:#888;background:var(--g100);}
 .chk.na{cursor:default;opacity:.2;}
-.chk.ck-p8{background:var(--p8);border-color:var(--p8);color:#fff;}
-.chk.ck-y1{background:var(--y1);border-color:var(--y1);color:#fff;}
-.chk.ck-y2{background:var(--y2);border-color:var(--y2);color:#fff;}
+.chk.ck-p8{background:#7c3aed!important;border-color:#7c3aed!important;color:#fff!important;}
+.chk.ck-y1{background:#16a34a!important;border-color:#16a34a!important;color:#fff!important;}
+.chk.ck-y2{background:#1d4ed8!important;border-color:#1d4ed8!important;color:#fff!important;}
 .chk.ck-p8::after,.chk.ck-y1::after,.chk.ck-y2::after{content:'✓';font-weight:900;}
 .status-summary-bar{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--g100);border-radius:10px;margin-bottom:16px;align-items:center;}
 .ss-item{font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;}
@@ -931,6 +934,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div id="afterschool-status" style="margin-top:12px;font-size:12px;color:#64748b;min-height:18px;"></div>
   </div>
 </div>
+
 
 </main>
 
@@ -2197,7 +2201,10 @@ function _makeAttendCallback() {
         });
       });
     });
-    renderYajaStatusTable();
+    // 저장 중인 셀이 있으면 전체 재렌더 스킵 (iOS: 버튼 교체로 인한 색상 누락 방지)
+    if (Object.keys(_pendingChecks).length === 0) {
+      renderYajaStatusTable();
+    }
   };
 }
 
@@ -2305,8 +2312,8 @@ function renderYajaStatusTable() {
         var allOk = (!(d.p8||_autoP8)||clsAtt.p8[i]) && (!d.y1||clsAtt.y1[i]) && (!d.y2||clsAtt.y2[i]);
         var mkChk = function(p) {
           var hasApp = d[p] || (p==='p8' && _autoP8);
-          if (!hasApp) return '<td><div class="chk na">—</div></td>';
-          return '<td><div class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(\''+cls+'\',\''+p+'\','+i+')"></div></td>';
+          if (!hasApp) return '<td><button type="button" class="chk na" disabled>—</button></td>';
+          return '<td><button type="button" class="chk '+(clsAtt[p][i]?'ck-'+p:'')+'" onclick="toggleChk(this,\''+cls+'\',\''+p+'\','+i+')"></button></td>';
         };
         var _badge = '';
         if (_isAfter) _badge += '<span style="font-size:10px;background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 5px;font-weight:800;margin-left:4px;white-space:nowrap;">(방과후)</span>';
@@ -2341,9 +2348,9 @@ function _touchChk(e, cls, p, i) {
   var now = Date.now();
   if (now - _lastChkTime < 300) return;
   _lastChkTime = now;
-  toggleChk(cls, p, i);
+  toggleChk(e.currentTarget, cls, p, i);
 }
-function toggleChk(cls, period, i) {
+function toggleChk(btnEl, cls, period, i) {
   var _key = cls+'|'+period+'|'+i;
   var _now = Date.now();
   // iOS Safari onclick 이중 발동 방지 (500ms 내 같은 셀 중복 무시)
@@ -2352,14 +2359,27 @@ function toggleChk(cls, period, i) {
 
   var att = getAttendDay(yajaMonth, attendDate);
   att[cls][period][i] = !att[cls][period][i];
-  _pendingChecks[_key] = att[cls][period][i];
-  fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, att[cls][period][i])
+  var _newVal = att[cls][period][i];
+  _pendingChecks[_key] = _newVal;
+
+  // onclick(this)로 받은 버튼 직접 업데이트 — querySelector 없이 즉각 반영
+  if (btnEl) {
+    btnEl.classList.remove('ck-p8','ck-y1','ck-y2');
+    if (_newVal) btnEl.classList.add('ck-'+period);
+  }
+
+  fbSaveAttendOne(yajaMonth, attendDate, cls, period, i, _newVal)
     .then(function() {
-      // 300ms 후 보호 해제 (Firebase onValue가 .then() 이후 오는 경우 대비)
-      setTimeout(function() { delete _pendingChecks[_key]; }, 300);
+      setTimeout(function() {
+        delete _pendingChecks[_key];
+        // 모든 펜딩 완료 시 카운트 업데이트
+        if (Object.keys(_pendingChecks).length === 0) renderYajaStatusTable();
+      }, 300);
     })
-    .catch(function() { delete _pendingChecks[_key]; });
-  renderYajaStatusTable();
+    .catch(function() {
+      delete _pendingChecks[_key];
+      if (Object.keys(_pendingChecks).length === 0) renderYajaStatusTable();
+    });
   if (document.getElementById('yaja-rate').classList.contains('active')) renderRateTable();
 }
 function confirmClass(cls) {
@@ -2955,7 +2975,7 @@ const SV_SKIP_DATES = new Set([
   '2026-03-04', // 야자 시작 전
   '2026-05-01', // 노동절(재량휴업)
   '2026-05-04', // 재량휴업일
-  // '2026-05-05' 어린이날 — 야자 있음
+  '2026-05-05', // 어린이날 (공휴일)
   '2026-05-25', // 대체공휴일
   '2026-06-03', // 임시공휴일(지방선거)
   '2026-07-17', // 제헌절
@@ -3014,6 +3034,33 @@ function isSkipDate(dateStr){
   return SV_SKIP_DATES.has(dateStr);
 }
 
+// Firebase에 저장된 svData 중 공휴일·제외일에 담당자가 배정된 경우 자동 교정 + Firebase 개별 저장
+function fixSvSkipDates() {
+  var fixed = [];
+  Object.keys(svData).forEach(function(m) {
+    var month = Number(m);
+    var monthData = svData[month];
+    if (!monthData) return;
+    Object.keys(monthData).forEach(function(key) {
+      var sv = monthData[key];
+      if (!sv) return;
+      // key 형식: "5-5" → 날짜 문자열 "2026-05-05"로 변환
+      var parts = key.split('-');
+      var ds = '2026-' + String(parts[0]).padStart(2,'0') + '-' + String(parts[1]).padStart(2,'0');
+      if (!isSkipDate(ds)) return;
+      // 공휴일인데 skip 처리 안 된 경우 → 강제 교정 (in-memory 즉시 반영)
+      if (sv.skip) return; // 이미 skip이면 Firebase는 건너뜀(in-memory는 이미 OK)
+      var reason = getSkipReason(ds) || '공휴일';
+      svData[month][key] = { name:'', isFri: sv.isFri, skip: true, skipReason: reason };
+      // Firebase에 개별 저장 (batch update보다 확실)
+      fbRef('svData/' + month + '/' + key).set(svData[month][key])
+        .catch(function(e){ console.warn('fixSvSkipDates 저장 실패 '+key, e); });
+      fixed.push(ds + '(' + reason + ')');
+    });
+  });
+  if (fixed.length) console.log('[fixSvSkipDates] 공휴일 교정:', fixed.join(', '));
+}
+
 function getSkipReason(dateStr){
   const reasons = {
     '2026-03-01':'삼일절',
@@ -3022,6 +3069,7 @@ function getSkipReason(dateStr){
     '2026-03-04':'야자 시작 전',
     '2026-05-01':'노동절(재량)',
     '2026-05-04':'재량휴업',
+    '2026-05-05':'어린이날',
     '2026-05-25':'대체공휴일',
     '2026-06-03':'임시공휴일',
     '2026-07-17':'제헌절',
@@ -3062,7 +3110,11 @@ function getWeekdayDates(year,month){
   const days=new Date(year,month,0).getDate();
   for(let d=1;d<=days;d++){
     const dow=new Date(year,month-1,d).getDay();
-    if(dow>=1&&dow<=5) result.push({d,dow});
+    if(dow<1||dow>5) continue;
+    // 공휴일·시험일·행사일은 감독표 생성에서도 제외
+    const ds=year+'-'+String(month).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    if(isSkipDate(ds)) continue;
+    result.push({d,dow});
   }
   return result;
 }
@@ -3223,12 +3275,24 @@ function generateSvCalendar(){
     }
   });
 
+  // ── 생성 후 안전장치: SV_SKIP_DATES 날짜는 무조건 skip 덮어쓰기 ──
+  // (getWeekdayDates에서 이미 걸러지지만 이중 보호)
+  SV_SKIP_DATES.forEach(function(ds){
+    var p=ds.split('-'), mo=parseInt(p[1]), da=parseInt(p[2]);
+    if(mo!==svMonth) return;
+    var k=mo+'-'+da;
+    var dow2=new Date(2026,mo-1,da).getDay();
+    if(dow2===0||dow2===6) return;
+    svData[svMonth][k]={name:'',isFri:dow2===5,skip:true,skipReason:getSkipReason(ds)||'공휴일'};
+  });
+
   // 결과 요약
   var summary = teachers.map(function(t){ return t.name+' '+(thisMonthCounts[t.name]||0)+'회'; }).join(' · ');
   if (isSplit) summary += ' | 금: ' + friTeachers.map(function(t){ return t.name+' '+(thisMonthCountsFri[t.name]||0)+'회'; }).join(' · ');
 
   renderSvCal();
   if(document.getElementById('sv-count').classList.contains('active')) renderSvCountTable();
+  scheduleSave(); // 생성 즉시 Firebase 저장
   showToast('✅ '+svMonth+'월 감독표 생성 완료'+(skippedCount?' (제외 '+skippedCount+'일)':'')+' | '+summary);
 }
 function clearSvCalendar(){
@@ -3237,6 +3301,16 @@ function clearSvCalendar(){
   showToast('🗑 감독표 초기화');
 }
 function renderSvCal(){
+  // ── 공휴일 강제 교정: SV_SKIP_DATES 목록의 날짜는 무조건 skip 처리 ──
+  // (Firebase에 교사 이름이 남아있어도 여기서 덮어씀)
+  SV_SKIP_DATES.forEach(function(ds){
+    var p=ds.split('-'), mo=parseInt(p[1]), da=parseInt(p[2]);
+    if(!svData[mo]) svData[mo]={};
+    var k=mo+'-'+da, sv=svData[mo][k];
+    if(sv && !sv.skip){
+      svData[mo][k]={name:'',isFri:!!(sv&&sv.isFri),skip:true,skipReason:getSkipReason(ds)||'공휴일'};
+    }
+  });
   svLoadMonthOrder();
   const body=document.getElementById('sv-cal-body');
   const year=2026,m=svMonth;
@@ -3253,7 +3327,12 @@ function renderSvCal(){
     const key=`${m}-${d}`,sv=svData[m][key];
     let inner='';
     if(!isSun&&!isSat){
-      if(sv&&sv.skip){
+      // ── 공휴일·제외일: SV_SKIP_DATES 기준으로 먼저 판단 (Firebase 저장값 무시) ──
+      const _forceSkip = isSkipDate(ds);
+      if(_forceSkip){
+        const _skipReason = getSkipReason(ds)||'야자 없음';
+        inner='<div class="sv-cal-ev skip" title="야자 없음: '+_skipReason+'">🚫 '+_skipReason+'</div>';
+      } else if(sv&&sv.skip){
         // 제외일 표시 — 수동 설정이면 클릭으로 복원 가능
         const skipLabel = sv.skipReason||'야자 없음';
         const isManual = !!sv.manual;
@@ -3279,7 +3358,7 @@ function renderSvCal(){
           :`<div class="sv-empty-cell" onclick="openSwapModal({dataset:{key:'${key}'}})" style="cursor:pointer;" title="클릭하여 배정">+ 배정</div>`;
       }
     }
-    html+=`<div class="cal-cell ${isToday?'today':''} ${isSun?'sun':''} ${isSat?'sat':''}${sv&&sv.skip?' skip-day':''}">
+    html+=`<div class="cal-cell ${isToday?'today':''} ${isSun?'sun':''} ${isSat?'sat':''}${(isSkipDate(ds)||(sv&&sv.skip))?' skip-day':''}">
       <div class="cal-day-num">${d}</div>${inner}
     </div>`;
   }
@@ -3545,6 +3624,15 @@ function buildSvCountMonthBtns() {
 }
 
 function renderSvCountTable(){
+  // ── 공휴일 강제 교정 (집계 전) ──
+  SV_SKIP_DATES.forEach(function(ds){
+    var p=ds.split('-'), mo=parseInt(p[1]), da=parseInt(p[2]);
+    if(!svData[mo]) return;
+    var k=mo+'-'+da, sv=svData[mo][k];
+    if(sv && !sv.skip){
+      svData[mo][k]={name:'',isFri:!!(sv&&sv.isFri),skip:true,skipReason:getSkipReason(ds)||'공휴일'};
+    }
+  });
   // 월 버튼 갱신
   buildSvCountMonthBtns();
   var sel = document.getElementById('svcount-month-selector');
@@ -3574,8 +3662,12 @@ function renderSvCountTable(){
 
   months.forEach(function(m) {
     if (!svData[m]) return;
-    Object.values(svData[m]).forEach(function(sv) {
+    Object.entries(svData[m]).forEach(function(entry) {
+      var _k=entry[0], sv=entry[1];
       if (!sv||!sv.name||sv.skip) return;
+      // 공휴일은 Firebase 저장값과 무관하게 집계에서 제외
+      var _ds='2026-'+String(m).padStart(2,'0')+'-'+String((_k.split('-')[1])||'01').padStart(2,'0');
+      if (isSkipDate(_ds)) return;
       if (!countMap[sv.name]) countMap[sv.name] = {wd:0, fri:0};
       if (sv.isFri) { countMap[sv.name].fri++; friDays++; }
       else          { countMap[sv.name].wd++;  wdDays++;  }
@@ -3613,8 +3705,11 @@ function renderSvCountTable(){
     months.forEach(function(m) {
       perMonth[m] = {};
       if (!svData[m]) return;
-      Object.values(svData[m]).forEach(function(sv) {
+      Object.entries(svData[m]).forEach(function(entry2) {
+        var _k2=entry2[0], sv=entry2[1];
         if (!sv||!sv.name||sv.skip) return;
+        var _ds2='2026-'+String(m).padStart(2,'0')+'-'+String((_k2.split('-')[1])||'01').padStart(2,'0');
+        if (isSkipDate(_ds2)) return;
         if (!perMonth[m][sv.name]) perMonth[m][sv.name]=0;
         perMonth[m][sv.name]++;
       });
@@ -5201,6 +5296,8 @@ function loadFromSheet() {
         });
         // 감독표
         Object.keys(r.svData||{}).forEach(function(m) { svData[Number(m)] = r.svData[m]; });
+        // 공휴일·제외일 자동 교정 (저장된 데이터에 담당자가 있어도 강제 skip 처리)
+        fixSvSkipDates();
         // 감독 순번 — 달별 독립 (svTeachersByMonth)
         if (r.svTeachersByMonth) {
           svTeachersByMonth = r.svTeachersByMonth;
@@ -5395,6 +5492,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function(){});
   });
 }
+
 </script>
 </body>
 </html>

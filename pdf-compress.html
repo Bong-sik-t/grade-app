@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF 용량 줄이기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f0fdf4;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px;}
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:36px 32px;width:100%;max-width:560px;}
+  .logo{font-size:36px;margin-bottom:12px;text-align:center;}
+  h1{font-size:22px;font-weight:900;color:#14532d;text-align:center;margin-bottom:6px;}
+  .sub{font-size:13px;color:#94a3b8;text-align:center;margin-bottom:32px;line-height:1.6;}
+  .drop-zone{border:2.5px dashed #cbd5e1;border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s;background:#f8fafc;position:relative;}
+  .drop-zone:hover,.drop-zone.over{border-color:#16a34a;background:#f0fdf4;}
+  .drop-zone .icon{font-size:44px;margin-bottom:10px;}
+  .drop-zone .label{font-size:14px;font-weight:700;color:#475569;}
+  .drop-zone .hint{font-size:12px;color:#94a3b8;margin-top:6px;}
+  .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .file-info{margin-top:14px;padding:12px 16px;background:#f1f5f9;border-radius:8px;font-size:13px;font-weight:700;color:#334155;display:none;align-items:center;gap:10px;}
+  .file-info span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-info .remove{cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;}
+  .file-info .remove:hover{color:#ef4444;}
+  .options{margin-top:22px;display:flex;flex-direction:column;gap:18px;}
+  .opt-row{display:flex;flex-direction:column;gap:6px;}
+  .opt-label{font-size:13px;font-weight:700;color:#475569;display:flex;justify-content:space-between;align-items:center;}
+  .opt-label .val{color:#16a34a;font-weight:900;}
+  input[type=range]{width:100%;accent-color:#16a34a;height:6px;cursor:pointer;}
+  select{width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;color:#334155;background:#fff;cursor:pointer;}
+  select:focus{outline:none;border-color:#16a34a;}
+  .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-weight:800;cursor:pointer;transition:.2s;margin-top:22px;}
+  .btn-primary{background:#16a34a;color:#fff;}
+  .btn-primary:hover:not(:disabled){background:#15803d;}
+  .btn-primary:disabled{background:#86efac;cursor:not-allowed;}
+  .progress-wrap{display:none;margin-top:20px;}
+  .progress-label{font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;}
+  .progress-bar{background:#dcfce7;border-radius:8px;height:10px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);width:0%;transition:.3s;border-radius:8px;}
+  .result{display:none;margin-top:20px;padding:16px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;}
+  .result.ok{background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;}
+  .result.err{background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;}
+  .info-box{margin-top:24px;background:#f0fdf4;border-radius:10px;padding:16px;border:1.5px solid #bbf7d0;}
+  .info-box .info-title{font-size:13px;font-weight:800;color:#16a34a;margin-bottom:8px;}
+  .info-box ul{padding-left:18px;}
+  .info-box li{font-size:12px;color:#64748b;line-height:1.8;}
+  .size-guide{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:3px;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">🗜️</div>
+  <h1>PDF 용량 줄이기</h1>
+  <p class="sub">각 페이지를 이미지로 압축하여 파일 크기를 줄입니다.<br>파일은 브라우저에서만 처리되며 서버로 전송되지 않습니다.</p>
+
+  <label class="drop-zone" id="dropZone"
+    ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+    <div class="icon">📄</div>
+    <div class="label">클릭하거나 파일을 드래그하세요</div>
+    <div class="hint">.pdf 파일만 지원</div>
+    <input type="file" accept=".pdf" id="fileInput" onchange="onFileChange(this)">
+  </label>
+
+  <div class="file-info" id="fileInfo">
+    <span>📄</span>
+    <span id="fileName"></span>
+    <span class="remove" onclick="clearFile()">✕</span>
+  </div>
+
+  <div class="options">
+    <div class="opt-row">
+      <div class="opt-label">
+        <span>🎨 이미지 화질</span>
+        <span class="val" id="qualityVal">보통 (70%)</span>
+      </div>
+      <input type="range" id="quality" min="20" max="90" value="70" oninput="updateQuality(this.value)">
+      <div class="size-guide"><span>← 용량 작게</span><span>화질 좋게 →</span></div>
+    </div>
+
+    <div class="opt-row">
+      <div class="opt-label"><span>🔍 해상도 (DPI)</span></div>
+      <select id="scale">
+        <option value="1.0">낮음 (1× · ~72dpi) — 가장 작은 용량</option>
+        <option value="1.5" selected>보통 (1.5× · ~108dpi) — 권장</option>
+        <option value="2.0">높음 (2× · ~144dpi) — 선명하지만 용량 큼</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="compressBtn" onclick="startCompress()" disabled>🗜️ 압축 시작</button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label" id="progressLabel">준비 중...</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="info-box">
+    <div class="info-title">📌 사용 안내</div>
+    <ul>
+      <li>압축 후에는 텍스트 선택·복사가 불가능해집니다.</li>
+      <li>화질 50% / 해상도 1× 설정이 가장 작은 용량을 만듭니다.</li>
+      <li>페이지 수가 많으면 처리 시간이 길어질 수 있습니다.</li>
+      <li>스캔 이미지 PDF는 화질 저하가 클 수 있습니다.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+var PDFJS_SRC    = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var _pdfLoaded  = false;
+var _selectedFile = null;
+
+function loadPdfJs(cb) {
+  if (_pdfLoaded) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = PDFJS_SRC;
+  s.onload = function() {
+    window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    _pdfLoaded = true;
+    cb();
+  };
+  document.head.appendChild(s);
+}
+
+function updateQuality(v) {
+  v = parseInt(v);
+  var label = v <= 30 ? '낮음' : v <= 50 ? '보통 이하' : v <= 70 ? '보통' : v <= 80 ? '높음' : '최고';
+  document.getElementById('qualityVal').textContent = label + ' (' + v + '%)';
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('over');
+}
+function onDragLeave() {
+  document.getElementById('dropZone').classList.remove('over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('over');
+  var f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') setFile(f);
+  else showResult('err', '⚠️ PDF 파일만 가능합니다.');
+}
+function onFileChange(input) {
+  if (input.files[0]) setFile(input.files[0]);
+}
+function setFile(f) {
+  _selectedFile = f;
+  var size = f.size > 1048576 ? (f.size/1048576).toFixed(2)+' MB' : (f.size/1024).toFixed(0)+' KB';
+  document.getElementById('fileName').textContent = f.name + '  (' + size + ')';
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('compressBtn').disabled = false;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+}
+function clearFile() {
+  _selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('compressBtn').disabled = true;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+}
+function showResult(type, msg) {
+  var el = document.getElementById('result');
+  el.className = 'result ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function startCompress() {
+  if (!_selectedFile) return;
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('compressBtn').disabled = true;
+  setProgress(5, 'PDF.js 로딩 중...');
+  loadPdfJs(function() { doCompress(_selectedFile); });
+}
+
+async function doCompress(file) {
+  try {
+    var quality = parseInt(document.getElementById('quality').value) / 100;
+    var scale   = parseFloat(document.getElementById('scale').value);
+
+    setProgress(10, 'PDF 불러오는 중...');
+    var ab = await file.arrayBuffer();
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    var pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    var total = pdf.numPages;
+
+    var { jsPDF } = window.jspdf;
+    var doc = null;
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+
+    for (var p = 1; p <= total; p++) {
+      var pct = 10 + Math.round((p / total) * 85);
+      setProgress(pct, p + ' / ' + total + ' 페이지 압축 중...');
+
+      var page = await pdf.getPage(p);
+      var vp   = page.getViewport({ scale: scale });
+
+      canvas.width  = vp.width;
+      canvas.height = vp.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      var imgData = canvas.toDataURL('image/jpeg', quality);
+
+      var isLandscape = vp.width > vp.height;
+      if (p === 1) {
+        doc = new jsPDF({
+          orientation: isLandscape ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [vp.width, vp.height],
+          hotfixes: ['px_scaling']
+        });
+      } else {
+        doc.addPage([vp.width, vp.height], isLandscape ? 'landscape' : 'portrait');
+      }
+      doc.addImage(imgData, 'JPEG', 0, 0, vp.width, vp.height);
+    }
+
+    setProgress(100, '압축 완료!');
+    var outName = file.name.replace(/\.pdf$/i, '') + '_압축.pdf';
+    doc.save(outName);
+
+    // 예상 절감률 계산 (화질 × 해상도 기반 추정)
+    var factor = quality * (scale * scale);
+    var savedPct = Math.round(Math.max(10, Math.min(85, (1 - factor * 0.8) * 100)));
+    showResult('ok', '✅ 완료! ' + outName + '  (원본 대비 약 ' + savedPct + '% 절감 예상)');
+
+  } catch(e) {
+    showResult('err', '❌ 오류: ' + e.message);
+  } finally {
+    document.getElementById('compressBtn').disabled = false;
+  }
+}
+</script>
+</body>
+</html>

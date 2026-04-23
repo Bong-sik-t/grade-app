@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → 엑셀 변환</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px;}
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:36px 32px;width:100%;max-width:560px;}
+  .logo{font-size:36px;margin-bottom:12px;text-align:center;}
+  h1{font-size:22px;font-weight:900;color:#1e3a5f;text-align:center;margin-bottom:6px;}
+  .sub{font-size:13px;color:#94a3b8;text-align:center;margin-bottom:32px;line-height:1.6;}
+  .drop-zone{border:2.5px dashed #cbd5e1;border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s;background:#f8fafc;position:relative;}
+  .drop-zone:hover,.drop-zone.over{border-color:#7c3aed;background:#faf5ff;}
+  .drop-zone .icon{font-size:44px;margin-bottom:10px;}
+  .drop-zone .label{font-size:14px;font-weight:700;color:#475569;}
+  .drop-zone .hint{font-size:12px;color:#94a3b8;margin-top:6px;}
+  .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .file-info{margin-top:14px;padding:12px 16px;background:#f1f5f9;border-radius:8px;font-size:13px;font-weight:700;color:#334155;display:none;align-items:center;gap:10px;}
+  .file-info span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-info .remove{cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;}
+  .file-info .remove:hover{color:#ef4444;}
+  .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-weight:800;cursor:pointer;transition:.2s;margin-top:18px;}
+  .btn-primary{background:#7c3aed;color:#fff;}
+  .btn-primary:hover:not(:disabled){background:#6d28d9;}
+  .btn-primary:disabled{background:#c4b5fd;cursor:not-allowed;}
+  .progress-wrap{display:none;margin-top:20px;}
+  .progress-label{font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;}
+  .progress-bar{background:#ede9fe;border-radius:8px;height:10px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a78bfa);width:0%;transition:.3s;border-radius:8px;}
+  .result{display:none;margin-top:20px;padding:16px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;}
+  .result.ok{background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;}
+  .result.err{background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;}
+  .info-box{margin-top:24px;background:#faf5ff;border-radius:10px;padding:16px;border:1.5px solid #ede9fe;}
+  .info-box .info-title{font-size:13px;font-weight:800;color:#7c3aed;margin-bottom:8px;}
+  .info-box ul{padding-left:18px;}
+  .info-box li{font-size:12px;color:#64748b;line-height:1.8;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">📊</div>
+  <h1>PDF → 엑셀 변환</h1>
+  <p class="sub">PDF에서 텍스트를 추출해 엑셀 파일로 변환합니다.<br>페이지마다 별도 시트로 생성됩니다.</p>
+
+  <label class="drop-zone" id="dropZone"
+    ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+    <div class="icon">📄</div>
+    <div class="label">클릭하거나 파일을 드래그하세요</div>
+    <div class="hint">.pdf 파일만 지원</div>
+    <input type="file" accept=".pdf" id="fileInput" onchange="onFileChange(this)">
+  </label>
+
+  <div class="file-info" id="fileInfo">
+    <span>📄</span>
+    <span id="fileName"></span>
+    <span class="remove" onclick="clearFile()">✕</span>
+  </div>
+
+  <button class="btn btn-primary" id="convertBtn" onclick="startConvert()" disabled>📊 엑셀로 변환</button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label" id="progressLabel">변환 중...</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="info-box">
+    <div class="info-title">📌 사용 안내</div>
+    <ul>
+      <li>텍스트 기반 PDF에서 잘 동작합니다.</li>
+      <li>스캔 이미지 PDF는 텍스트 추출이 안 될 수 있습니다.</li>
+      <li>표 구조는 Y좌표 기준으로 행을 자동 감지합니다.</li>
+      <li>페이지가 많을수록 시간이 걸릴 수 있습니다.</li>
+      <li>파일은 서버로 전송되지 않으며 브라우저에서만 처리됩니다.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+var PDFJS_SRC    = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var _pdfLoaded = false;
+var _selectedFile = null;
+
+function loadPdfJs(cb) {
+  if (_pdfLoaded) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = PDFJS_SRC;
+  s.onload = function() {
+    window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    _pdfLoaded = true;
+    cb();
+  };
+  document.head.appendChild(s);
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('over');
+}
+function onDragLeave(e) {
+  document.getElementById('dropZone').classList.remove('over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('over');
+  var f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') setFile(f);
+  else showResult('err', '⚠️ PDF 파일만 가능합니다.');
+}
+function onFileChange(input) {
+  var f = input.files[0];
+  if (f) setFile(f);
+}
+function setFile(f) {
+  _selectedFile = f;
+  var kb = (f.size / 1024).toFixed(0);
+  var size = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(2)+' MB' : kb+' KB';
+  document.getElementById('fileName').textContent = f.name + '  (' + size + ')';
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('convertBtn').disabled = false;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+}
+function clearFile() {
+  _selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('convertBtn').disabled = true;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+}
+function showResult(type, msg) {
+  var el = document.getElementById('result');
+  el.className = 'result ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function startConvert() {
+  if (!_selectedFile) return;
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('convertBtn').disabled = true;
+  setProgress(5, 'PDF.js 로딩 중...');
+  loadPdfJs(function() { doConvert(_selectedFile); });
+}
+
+async function doConvert(file) {
+  try {
+    setProgress(10, 'PDF 불러오는 중...');
+    var ab = await file.arrayBuffer();
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    var pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    var total = pdf.numPages;
+    var wb = XLSX.utils.book_new();
+
+    for (var p = 1; p <= total; p++) {
+      var pct = 10 + Math.round((p / total) * 80);
+      setProgress(pct, p + ' / ' + total + ' 페이지 처리 중...');
+
+      var page = await pdf.getPage(p);
+      var tc   = await page.getTextContent();
+
+      // Y좌표(소수점 버림)로 행 묶기
+      var rowMap = {};
+      tc.items.forEach(function(item) {
+        if (!item.str) return;
+        var y = Math.round(item.transform[5] / 3) * 3;
+        if (!rowMap[y]) rowMap[y] = [];
+        rowMap[y].push({ x: item.transform[4], str: item.str });
+      });
+
+      var ys = Object.keys(rowMap).map(Number).sort(function(a,b){ return b-a; });
+      var wsData = ys.map(function(y) {
+        return rowMap[y]
+          .sort(function(a,b){ return a.x - b.x; })
+          .map(function(it){ return it.str; });
+      }).filter(function(row){ return row.join('').trim(); });
+
+      var sheetName = total === 1 ? '내용' : p + '페이지';
+      if (wsData.length) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), sheetName);
+      } else {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['(내용 없음)']]), sheetName);
+      }
+    }
+
+    setProgress(100, '완료!');
+    var outName = file.name.replace(/\.pdf$/i, '') + '_변환.xlsx';
+    XLSX.writeFile(wb, outName);
+    showResult('ok', '✅ 변환 완료! ' + outName + ' 다운로드되었습니다.');
+  } catch(e) {
+    showResult('err', '❌ 오류: ' + e.message);
+  } finally {
+    document.getElementById('convertBtn').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
