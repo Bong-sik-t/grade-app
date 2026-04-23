@@ -2214,7 +2214,10 @@ function startAbsentPolling() {
   fbUnsubscribeByType('absent');
   fbSubscribeAbsentReasons(yajaMonth, function(data) {
     absentReasons[yajaMonth] = data;
-    renderYajaStatusTable();
+    // 체크 저장 중이면 재렌더 스킵 (저장 완료 후 renderYajaStatusTable이 호출됨)
+    if (Object.keys(_pendingChecks).length === 0) {
+      renderYajaStatusTable();
+    }
   });
   if (attendDate) {
     fbUnsubscribeByType('attend');
