@@ -2187,24 +2187,18 @@ var _lastToggleTime = {};
 
 function _makeAttendCallback() {
   return function(data) {
+    // 저장 진행 중인 셀이 있으면 Firebase 콜백 전체 무시 (로컬값 보호)
+    if (Object.keys(_pendingChecks).length > 0) return;
     var dayData = getAttendDay(yajaMonth, attendDate);
     CLASSES.forEach(function(cls) {
       ['p8','y1','y2'].forEach(function(p) {
         var clsData = (data[cls] && data[cls][p]) || {};
         CLASS_STUDENTS[cls].forEach(function(_, i) {
-          var _key = cls+'|'+p+'|'+i;
-          if (_pendingChecks.hasOwnProperty(_key)) {
-            dayData[cls][p][i] = _pendingChecks[_key]; // 저장 중인 셀은 로컬값 유지
-          } else {
-            dayData[cls][p][i] = !!clsData[i];
-          }
+          dayData[cls][p][i] = !!clsData[i];
         });
       });
     });
-    // 저장 중인 셀이 있으면 전체 재렌더 스킵 (iOS: 버튼 교체로 인한 색상 누락 방지)
-    if (Object.keys(_pendingChecks).length === 0) {
-      renderYajaStatusTable();
-    }
+    renderYajaStatusTable();
   };
 }
 
@@ -2230,6 +2224,15 @@ function stopAbsentPolling() {
 }
 
 function renderYajaStatusTable() {
+  // 저장 중인 체크는 로컬값 우선 반영 (Firebase 콜백이 덮어쓰더라도 정상 표시)
+  if (Object.keys(_pendingChecks).length > 0) {
+    Object.keys(_pendingChecks).forEach(function(key) {
+      var parts = key.split('|');
+      var _cls = parts[0], _p = parts[1], _i = parseInt(parts[2]);
+      var _day = getAttendDay(yajaMonth, attendDate);
+      if (_day[_cls] && _day[_cls][_p]) _day[_cls][_p][_i] = _pendingChecks[key];
+    });
+  }
   var m = yajaMonth;
 
   // 날짜 버튼 렌더
