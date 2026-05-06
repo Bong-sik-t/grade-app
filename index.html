@@ -4426,17 +4426,13 @@ function saveApplicationPeriod() {
   appPeriod.end   = e;
   updatePeriodStatus();
 
-  // 직접 스프레드시트에 저장 (캐시 우회)
+  // Firebase에 직접 저장 (학생 신청 페이지가 즉시 반영)
   var btn = document.querySelector('[onclick="saveApplicationPeriod()"]');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
-  callApi('saveAppPeriodDirect', [s, e])
-    .then(function(r) {
+  fbRef('appPeriod').set({start: s, end: e})
+    .then(function() {
       if (btn) { btn.disabled = false; btn.textContent = '💾 저장'; }
-      if (r && r.ok) {
-        showToast('✅ 신청 기간이 저장되었습니다');
-      } else {
-        showToast('❌ 저장 실패 — 다시 시도해주세요');
-      }
+      showToast('✅ 신청 기간이 저장되었습니다');
     })
     .catch(function(err) {
       if (btn) { btn.disabled = false; btn.textContent = '💾 저장'; }
@@ -4449,7 +4445,8 @@ function clearApplicationPeriod() {
   document.getElementById('setting-open-start').value = '';
   document.getElementById('setting-open-end').value   = '';
   updatePeriodStatus();
-  callApi('saveAppPeriodDirect', ['', ''])
+  // Firebase에서도 삭제 (항상 열림)
+  fbRef('appPeriod').set({start: '', end: ''})
     .then(function() { showToast('✅ 기간 삭제 — 항상 열림으로 설정됩니다'); })
     .catch(function() { showToast('❌ 저장 오류'); });
 }
