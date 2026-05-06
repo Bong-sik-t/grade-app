@@ -12,6 +12,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="야자신청">
 <link rel="apple-touch-icon" href="/icon.svg">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="/firebase-ready.js"></script>
 <style>
   :root {
     --navy:#1e3a5f; --navy2:#2d5282; --gold:#f59e0b; --green:#16a34a;
@@ -357,21 +361,7 @@ const CLASS_STUDENTS = {
   '1-7': [{num:1,name:'강도현'}, {num:2,name:'고부성'}, {num:3,name:'공장우'}, {num:4,name:'곽민준'}, {num:5,name:'구현명'}, {num:6,name:'김규현'}, {num:7,name:'김도형'}, {num:8,name:'김세현'}, {num:9,name:'김에덴'}, {num:10,name:'박서우'}, {num:11,name:'박세진'}, {num:12,name:'손민재'}, {num:13,name:'윤희범'}, {num:14,name:'이동우'}, {num:15,name:'이상인'}, {num:16,name:'이성윤'}, {num:17,name:'이승민'}, {num:18,name:'임태경'}, {num:19,name:'임효준'}, {num:20,name:'정예찬'}, {num:21,name:'정재원'}, {num:22,name:'조성호'}, {num:23,name:'최경민'}, {num:24,name:'최호영'}, {num:25,name:'김상훈'}, {num:26,name:'박찬욱'}],
 };
 
-// ▼ GAS 웹앱 배포 URL — 배포 후 아래 값을 실제 URL로 교체하세요
-var GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx8fxzQHkE3j2_MjnexOanSKkpmacwxpAa5MDWZ0lwG9sXhjvPAf0MCr_3e6OmJCWDtaQ/exec';
-
-function callApi(action, args) {
-  var readOnly = (action === 'loadAllData' || action === 'getApplicationStatus');
-  if (readOnly) {
-    return fetch(GAS_API_URL + '?action=' + encodeURIComponent(action))
-      .then(function(res) { return res.json(); });
-  }
-  return fetch(GAS_API_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain'},
-    body: JSON.stringify({action: action, args: args || []})
-  }).then(function(res) { return res.json(); });
-}
+// Firebase 기반 — GAS 대신 Firebase에서 직접 읽기/쓰기
 
 // 요일 상수
 const DOW_KEYS   = ['mon','tue','wed','thu','fri'];
@@ -414,45 +404,59 @@ function syncRosterToClassStudents(studentRoster) {
 // ── 초기화 ──
 window.addEventListener('load', function() {
   showLoading('확인 중...');
-  callApi('getApplicationStatus')
-    .then(function(status) {
-      hideLoading();
-      // studentRoster 동기화
-      if (status && status.studentRoster) syncRosterToClassStudents(status.studentRoster);
-      if (!status || !status.open) {
-        // 신청 기간 외
-        var msg = '';
-        if (status && status.start && status.end) {
-          msg = '신청 기간: <b>' + status.start + '</b> ~ <b>' + status.end + '</b><br><br>'
-              + '해당 기간에 다시 접속해주세요.';
-        } else if (status && status.start) {
-          msg = '신청 시작일: <b>' + status.start + '</b><br><br>해당 날짜 이후에 접속해주세요.';
-        } else {
-          msg = '현재 신청 기간이 아닙니다.<br>담임 선생님께 문의하세요.';
-        }
-        document.getElementById('closed-msg').innerHTML = msg;
-        appClosed = true;
-        document.getElementById('screen-closed').style.display = 'block';
-        document.getElementById('screen-closed').classList.add('active');
-        // 스텝 인디케이터 숨기기
-        var stepBar = document.querySelector('.steps');
-        if (stepBar) stepBar.style.display = 'none';
+  fbInit();
+  // Firebase에서 appPeriod + studentRoster만 로드
+  Promise.all([
+    fbRef('appPeriod').once('value'),
+    fbRef('studentRoster').once('value')
+  ]).then(function(snaps) {
+    var period  = snaps[0].val() || {};
+    var rosterRaw = snaps[1].val();
+
+    // studentRoster 동기화
+    var roster = [];
+    if (rosterRaw) {
+      roster = Array.isArray(rosterRaw) ? rosterRaw : Object.values(rosterRaw);
+    }
+    if (roster.length) syncRosterToClassStudents(roster);
+
+    // 신청 기간 판단 (start/end 모두 비어있으면 항상 열림)
+    var today = new Date().toISOString().slice(0, 10);
+    var s = period.start || '', e = period.end || '';
+    var isOpen = (!s || today >= s) && (!e || today <= e);
+
+    hideLoading();
+
+    if (!isOpen) {
+      // 신청 기간 외
+      var msg = '';
+      if (s && e) {
+        msg = '신청 기간: <b>' + s + '</b> ~ <b>' + e + '</b><br><br>해당 기간에 다시 접속해주세요.';
+      } else if (s) {
+        msg = '신청 시작일: <b>' + s + '</b><br><br>해당 날짜 이후에 접속해주세요.';
       } else {
-        // 신청 기간 정상
-        buildClsGrid();
-        buildMonthGrid();
-        updateStep(1);
-        document.getElementById('screen-1').classList.add('active');
+        msg = '현재 신청 기간이 아닙니다.<br>담임 선생님께 문의하세요.';
       }
-    })
-    .catch(function() {
-      hideLoading();
-      // 오류 시 일단 열어줌
+      document.getElementById('closed-msg').innerHTML = msg;
+      appClosed = true;
+      document.getElementById('screen-closed').style.display = 'block';
+      document.getElementById('screen-closed').classList.add('active');
+      var stepBar = document.querySelector('.steps');
+      if (stepBar) stepBar.style.display = 'none';
+    } else {
       buildClsGrid();
       buildMonthGrid();
       updateStep(1);
       document.getElementById('screen-1').classList.add('active');
-    });
+    }
+  }).catch(function() {
+    hideLoading();
+    // Firebase 연결 실패 시 일단 열어줌
+    buildClsGrid();
+    buildMonthGrid();
+    updateStep(1);
+    document.getElementById('screen-1').classList.add('active');
+  });
 });
 
 function buildClsGrid() {
@@ -639,46 +643,42 @@ function submitApplication() {
     showToast('⚠️ 반·학생·월을 선택해주세요'); return;
   }
   showLoading('신청 중...');
-  // 요일별 신청 데이터 구성
-  var yajaByDow = {}, seoksiByDow = {};
+
+  // 요일별 신청 데이터 구성 (Firebase 경로: yajaData/{month}/{cls}/{idx}/{dow})
+  var yajaEntry = {}, seoksiEntry = {};
   DOW_KEYS.forEach(function(k) {
     var st = selDow[k];
-    yajaByDow[k] = {
+    yajaEntry[k] = {
       p8: (st.yaja==='p8'||st.yaja==='y1'||st.yaja==='y2'),
       y1: (st.yaja==='y1'||st.yaja==='y2'),
       y2: (st.yaja==='y2')
     };
-    seoksiByDow[k] = st.seoksi;
+    seoksiEntry[k] = !!st.seoksi;
   });
-  var payload = {
-    month:       selMonth,
-    cls:         selCls,
-    idx:         selIdx,
-    yajaByDow:   yajaByDow,
-    seoksiByDow: seoksiByDow
-  };
-  callApi('saveStudentApplication', [JSON.stringify(payload)])
-    .then(function(r) {
+
+  // Firebase 경로별 업데이트 (한 번에 원자적으로 저장)
+  var updates = {};
+  updates['yajaData/'   + selMonth + '/' + selCls + '/' + selIdx] = yajaEntry;
+  updates['seoksiData/' + selMonth + '/' + selCls + '/' + selIdx] = seoksiEntry;
+
+  fbRef('').update(updates)
+    .then(function() {
       hideLoading();
-      if (r && r.ok) {
-        var s = CLASS_STUDENTS[selCls][selIdx];
-        var doneDetails = DOW_KEYS.map(function(k){
-          var st = selDow[k];
-          var lb = {none:'—',p8:'8교시',y1:'야자1',y2:'야자2'}[st.yaja];
-          return DOW_FULL[k]+': <b>'+lb+'</b>'+(st.seoksi?' + 석식':'');
-        }).join('<br>');
-        document.getElementById('done-msg').innerHTML =
-          '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>'+
-          selMonth+'월 신청이 완료되었습니다.<br><br>'+doneDetails;
-        document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
-        document.getElementById('screen-done').classList.add('active');
-      } else {
-        showToast('❌ 저장 실패: '+(r?r.error:'서버 오류'));
-      }
+      var s = CLASS_STUDENTS[selCls][selIdx];
+      var doneDetails = DOW_KEYS.map(function(k){
+        var st = selDow[k];
+        var lb = {none:'—',p8:'8교시',y1:'야자1',y2:'야자2'}[st.yaja];
+        return DOW_FULL[k]+': <b>'+lb+'</b>'+(st.seoksi?' + 석식':'');
+      }).join('<br>');
+      document.getElementById('done-msg').innerHTML =
+        '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>'+
+        selMonth+'월 신청이 완료되었습니다.<br><br>'+doneDetails;
+      document.querySelectorAll('.screen').forEach(function(sc){ sc.classList.remove('active'); });
+      document.getElementById('screen-done').classList.add('active');
     })
     .catch(function(e) {
       hideLoading();
-      showToast('❌ 오류: '+e.message);
+      showToast('❌ 저장 실패: ' + e.message);
     });
 }
 
