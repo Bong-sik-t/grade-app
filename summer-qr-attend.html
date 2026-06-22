@@ -85,16 +85,16 @@
 </div>
 
 <script>
-var period = new URLSearchParams(location.search).get('period') || 'am';
+var params = new URLSearchParams(location.search);
+var period = params.get('period') || 'am';
+var qrDate = params.get('date') || '';
 var periodLabel = period === 'am' ? '🌅 오전' : '☀️ 오후';
 var periodClass = period === 'am' ? 'am' : 'pm';
-var today = new Date().toISOString().slice(0, 10);
+var now = new Date();
+var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
 
-// 여름방학 자습 기간 체크
-var SUMMER_DATES = ['2026-07-27','2026-07-28','2026-07-29','2026-07-30','2026-07-31',
-                    '2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07'];
-var isValidDate = true; // 테스트용 - 날짜 제한 임시 해제 (운영 시 아래로 교체)
-// var isValidDate = SUMMER_DATES.indexOf(today) !== -1;
+// 날짜 파라미터가 없으면 구형 QR → 오늘 날짜로 허용
+var isValidDate = !qrDate || qrDate === today;
 
 function render(html) {
   document.getElementById('card').innerHTML = html;
@@ -102,11 +102,14 @@ function render(html) {
 
 function showLogin() {
   if (!isValidDate) {
+    var msg = qrDate && qrDate !== today
+      ? '오늘 날짜용 QR코드가 아닙니다.<br>선생님께 새 QR을 요청하세요.'
+      : '여름방학 자습 기간(7/27~8/7)에만 출석 가능합니다.';
     render(
       '<div class="result">'
       + '<div class="result-icon">🔒</div>'
-      + '<div class="result-title error">출석 기간이 아닙니다</div>'
-      + '<div class="result-sub">여름방학 자습 기간(7/27~8/7)에만 출석 가능합니다.</div>'
+      + '<div class="result-title error">유효하지 않은 QR</div>'
+      + '<div class="result-sub">' + msg + '</div>'
       + '</div>'
     );
     return;

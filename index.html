@@ -5094,13 +5094,15 @@ function uploadEmailMapCsv(input) {
 }
 
 function renderSummerQR() {
+  var now = new Date();
+  var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   var base = location.origin + '/summer-qr-attend';
   ['am','pm'].forEach(function(period) {
     var el = document.getElementById('qr-' + period);
     if (!el) return;
     el.innerHTML = '';
     new QRCode(el, {
-      text: base + '?period=' + period,
+      text: base + '?period=' + period + '&date=' + today,
       width: 180, height: 180,
       colorDark: '#1e3a5f', colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M
@@ -5109,8 +5111,10 @@ function renderSummerQR() {
 }
 
 function openQrFullscreen(period) {
+  var now = new Date();
+  var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   var base = location.origin + '/summer-qr-attend';
-  var url = base + '?period=' + period;
+  var url = base + '?period=' + period + '&date=' + today;
   var label = period === 'am' ? '🌅 오전 출석 QR' : '☀️ 오후 출석 QR';
   var color = period === 'am' ? '#1d4ed8' : '#15803d';
 
