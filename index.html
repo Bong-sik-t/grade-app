@@ -21,6 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="firebase-ready.js"></script>
 <style>
 #loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:18px;}
@@ -870,6 +871,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div class="sub-tab active" onclick="switchSummerTab('summer-supervisor',this)">📋 감독 명단</div>
     <div class="sub-tab" onclick="switchSummerTab('summer-attend',this)">✅ 학생 출석 현황</div>
     <div class="sub-tab" onclick="switchSummerTab('summer-apply',this)">📊 학생 신청 현황</div>
+    <div class="sub-tab" onclick="switchSummerTab('summer-qr',this)">📱 출석 QR</div>
   </div>
 
   <!-- 감독 명단 -->
@@ -914,6 +916,23 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   <div id="summer-apply" class="sub-section">
     <p style="font-size:13px;color:var(--g600);margin-bottom:16px;font-weight:700;">📌 여름방학 자습을 신청한 학생 목록입니다.</p>
     <div id="summer-apply-grid" class="class-grid"></div>
+  </div>
+
+  <!-- 출석 QR -->
+  <div id="summer-qr" class="sub-section">
+    <p style="font-size:13px;color:var(--g600);margin-bottom:16px;font-weight:700;">📌 태블릿에 QR을 띄워두면 학생이 스캔 후 구글 로그인으로 자동 출석됩니다.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;">
+        <div style="font-size:14px;font-weight:900;color:#1d4ed8;margin-bottom:16px;">🌅 오전 출석 QR</div>
+        <div id="qr-am" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+        <div style="font-size:11px;color:var(--g400);">/summer-qr-attend?period=am</div>
+      </div>
+      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;">
+        <div style="font-size:14px;font-weight:900;color:#15803d;margin-bottom:16px;">☀️ 오후 출석 QR</div>
+        <div id="qr-pm" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+        <div style="font-size:11px;color:var(--g400);">/summer-qr-attend?period=pm</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -981,6 +1000,21 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
       <button class="btn btn-outline btn-sm" onclick="clearSummerAppPeriod()">🗑 기간 삭제 (항상 열림)</button>
     </div>
     <div id="summer-period-status" style="margin-top:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:700;display:none;"></div>
+  </div>
+
+  <!-- 학생 구글 계정 매핑 업로드 -->
+  <div style="background:#fff;border-radius:12px;border:1.5px solid #e2e8f0;padding:24px;max-width:480px;margin-bottom:20px;">
+    <div style="font-size:15px;font-weight:900;color:#1e3a5f;margin-bottom:6px;">📧 학생 구글 계정 매핑</div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">학번/구글계정 CSV 파일을 업로드하면 여름방학 자습 QR 출석에 사용됩니다.</p>
+    <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:12px;color:#475569;margin-bottom:14px;line-height:1.6;">
+      <b>파일 형식:</b> 1열=학번(4자리, 예: 1101), 2열=구글계정<br>
+      1행은 헤더(학번,구글계정)
+    </div>
+    <label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0;">
+      📤 CSV 업로드
+      <input type="file" accept=".csv" style="display:none" onchange="uploadEmailMapCsv(this)">
+    </label>
+    <div id="emailmap-status" style="margin-top:12px;font-size:12px;color:#64748b;min-height:18px;"></div>
   </div>
 
   <!-- 기숙사 학생 관리 -->
@@ -5016,6 +5050,57 @@ var summerSupervisors = []; // [{date,period,name,memo}]
 var summerAttendData  = {}; // {dateStr: {cls: {idx: {am:bool,pm:bool}}}}
 var summerApplyData   = {}; // {cls: {idx: true}}
 
+function uploadEmailMapCsv(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var lines = e.target.result.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+    var updates = {};
+    var count = 0;
+    lines.forEach(function(line, i) {
+      if (i === 0 && line.startsWith('학번')) return; // 헤더 스킵
+      var parts = line.split(',');
+      if (parts.length < 2) return;
+      var hakbun = parts[0].trim();
+      var email  = parts[1].trim().toLowerCase();
+      if (hakbun.length !== 4 || !email) return;
+      var clsNum = hakbun[1]; // 반 번호
+      var stuNum = parseInt(hakbun.slice(2)); // 학생 번호
+      var cls = '1-' + clsNum;
+      // CLASS_STUDENTS에서 인덱스 찾기
+      var students = CLASS_STUDENTS[cls] || [];
+      var idx = students.findIndex(function(s){ return s.num === stuNum; });
+      if (idx === -1) return;
+      var safeEmail = email.replace(/\./g,'__').replace(/@/g,'__at__');
+      updates['summerEmailMap/' + safeEmail] = {cls: cls, idx: idx, num: stuNum};
+      count++;
+    });
+    if (!count) { document.getElementById('emailmap-status').textContent = '⚠️ 매핑할 학생이 없습니다.'; return; }
+    fbRef('').update(updates).then(function() {
+      document.getElementById('emailmap-status').textContent = '✅ ' + count + '명 매핑 완료';
+      showToast('✅ 구글 계정 매핑 ' + count + '명 저장 완료');
+    });
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function renderSummerQR() {
+  var base = location.origin + '/summer-qr-attend';
+  ['am','pm'].forEach(function(period) {
+    var el = document.getElementById('qr-' + period);
+    if (!el) return;
+    el.innerHTML = '';
+    new QRCode(el, {
+      text: base + '?period=' + period,
+      width: 180, height: 180,
+      colorDark: '#1e3a5f', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  });
+}
+
 function copySummerStudentUrl() {
   var url = location.origin + '/summer-student';
   navigator.clipboard.writeText(url).then(function() {
@@ -5033,6 +5118,7 @@ function switchSummerTab(id, el) {
   if (id === 'summer-supervisor') renderSummerSv();
   if (id === 'summer-attend')     { renderSummerDateBtns(); renderSummerAttend(); }
   if (id === 'summer-apply')      renderSummerApply();
+  if (id === 'summer-qr')         renderSummerQR();
 }
 
 // ── 감독 명단 ──

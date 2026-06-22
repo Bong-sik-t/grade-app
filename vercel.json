@@ -3,6 +3,7 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/student", "destination": "/student.html" },
-    { "source": "/summer-student", "destination": "/summer-student.html" }
+    { "source": "/summer-student", "destination": "/summer-student.html" },
+    { "source": "/summer-qr-attend", "destination": "/summer-qr-attend.html" }
   ]
 }

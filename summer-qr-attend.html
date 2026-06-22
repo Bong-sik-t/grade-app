@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>여름방학 자습 출석</title>
+<meta name="theme-color" content="#1e3a5f">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="/firebase-ready.js"></script>
+<style>
+  :root {
+    --navy:#1e3a5f; --navy2:#2d5282;
+    --green:#16a34a; --red:#dc2626;
+    --am:#1d4ed8; --pm:#15803d;
+    --g100:#f1f5f9; --g200:#e2e8f0; --g400:#94a3b8; --g600:#475569;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:'Noto Sans KR',sans-serif;
+    background:#f0f5ff; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px;
+  }
+
+  .card {
+    background:#fff; border-radius:20px;
+    padding:36px 28px; text-align:center;
+    box-shadow:0 8px 32px rgba(30,58,95,.15);
+    max-width:360px; width:100%;
+  }
+
+  .period-badge {
+    display:inline-block; padding:6px 18px; border-radius:20px;
+    font-size:13px; font-weight:800; margin-bottom:20px;
+  }
+  .period-badge.am { background:#eff6ff; color:var(--am); }
+  .period-badge.pm { background:#f0fdf4; color:var(--pm); }
+
+  .card h1 { font-size:22px; font-weight:900; color:var(--navy); margin-bottom:8px; }
+  .card p  { font-size:13px; color:var(--g400); line-height:1.6; margin-bottom:28px; }
+
+  .btn-google {
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    width:100%; padding:14px 20px; border-radius:12px;
+    border:2px solid #e2e8f0; background:#fff;
+    font-size:15px; font-weight:800; color:#3c4043;
+    cursor:pointer; transition:all .15s;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
+  }
+  .btn-google:hover { box-shadow:0 4px 16px rgba(0,0,0,.12); border-color:#c8d0e0; }
+  .btn-google:active { transform:scale(.98); }
+  .btn-google svg { width:22px; height:22px; flex-shrink:0; }
+
+  .result {
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 0;
+  }
+  .result-icon { font-size:64px; margin-bottom:16px; }
+  .result-title { font-size:22px; font-weight:900; margin-bottom:8px; }
+  .result-title.success { color:var(--green); }
+  .result-title.error   { color:var(--red); }
+  .result-sub { font-size:13px; color:var(--g600); line-height:1.7; }
+
+  .spinner {
+    width:44px; height:44px; border-radius:50%;
+    border:4px solid #e2e8f0; border-top-color:var(--navy);
+    animation:spin .8s linear infinite; margin:0 auto 16px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .loading-text { font-size:14px; font-weight:800; color:var(--navy); }
+
+  .date-label {
+    font-size:12px; color:var(--g400); margin-top:20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <!-- 내용은 JS로 렌더 -->
+</div>
+
+<script>
+var period = new URLSearchParams(location.search).get('period') || 'am';
+var periodLabel = period === 'am' ? '🌅 오전' : '☀️ 오후';
+var periodClass = period === 'am' ? 'am' : 'pm';
+var today = new Date().toISOString().slice(0, 10);
+
+// 여름방학 자습 기간 체크
+var SUMMER_DATES = ['2026-07-27','2026-07-28','2026-07-29','2026-07-30','2026-07-31',
+                    '2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07'];
+var isValidDate = SUMMER_DATES.indexOf(today) !== -1;
+
+function render(html) {
+  document.getElementById('card').innerHTML = html;
+}
+
+function showLogin() {
+  if (!isValidDate) {
+    render(
+      '<div class="result">'
+      + '<div class="result-icon">🔒</div>'
+      + '<div class="result-title error">출석 기간이 아닙니다</div>'
+      + '<div class="result-sub">여름방학 자습 기간(7/27~8/7)에만 출석 가능합니다.</div>'
+      + '</div>'
+    );
+    return;
+  }
+  render(
+    '<div class="period-badge ' + periodClass + '">' + periodLabel + ' 출석</div>'
+    + '<h1>여름방학 자습 출석</h1>'
+    + '<p>학교 구글 계정으로 로그인하면<br>자동으로 출석 처리됩니다.</p>'
+    + '<button class="btn-google" onclick="signInGoogle()">'
+    + '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>'
+    + '학교 구글 계정으로 로그인'
+    + '</button>'
+    + '<div class="date-label">' + today + ' · ' + periodLabel + '</div>'
+  );
+}
+
+function showLoading(msg) {
+  render(
+    '<div class="period-badge ' + periodClass + '">' + periodLabel + ' 출석</div>'
+    + '<div class="spinner"></div>'
+    + '<div class="loading-text">' + (msg || '처리 중...') + '</div>'
+  );
+}
+
+function showSuccess(name, cls) {
+  render(
+    '<div class="result">'
+    + '<div class="result-icon">✅</div>'
+    + '<div class="result-title success">출석 완료!</div>'
+    + '<div class="result-sub"><b>' + cls + '반 ' + name + '</b><br>' + today + ' ' + periodLabel + ' 출석이 확인되었습니다.</div>'
+    + '</div>'
+    + '<div class="date-label" style="margin-top:24px;">이 창을 닫아도 됩니다.</div>'
+  );
+}
+
+function showError(msg) {
+  render(
+    '<div class="result">'
+    + '<div class="result-icon">❌</div>'
+    + '<div class="result-title error">출석 실패</div>'
+    + '<div class="result-sub">' + msg + '</div>'
+    + '</div>'
+    + '<button class="btn-google" style="margin-top:24px;" onclick="showLogin()">다시 시도</button>'
+  );
+}
+
+function signInGoogle() {
+  showLoading('로그인 중...');
+  var provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ hd: 'kyungnam.hs.kr' }); // 학교 도메인 힌트
+  firebase.auth().signInWithPopup(provider)
+    .then(function(result) {
+      var email = result.user.email.toLowerCase();
+      handleLogin(email);
+    })
+    .catch(function(e) {
+      if (e.code === 'auth/popup-closed-by-user') { showLogin(); return; }
+      showError('로그인 오류: ' + e.message);
+    });
+}
+
+function handleLogin(email) {
+  showLoading('학생 정보 확인 중...');
+  var safeEmail = email.replace(/\./g, '__').replace(/@/g, '__at__');
+  fbRef('summerEmailMap/' + safeEmail).once('value').then(function(snap) {
+    var info = snap.val();
+    if (!info) {
+      showError('등록된 학생 정보가 없습니다.<br>(' + email + ')<br>담임 선생님께 문의하세요.');
+      return;
+    }
+    markAttend(info.cls, info.idx, info.num, email);
+  }).catch(function(e) {
+    showError('데이터 조회 오류: ' + e.message);
+  });
+}
+
+function markAttend(cls, idx, num, email) {
+  showLoading('출석 처리 중...');
+  // 학생 이름 가져오기
+  fbRef('studentRoster').once('value').then(function(snap) {
+    var roster = snap.val() || [];
+    var arr = Array.isArray(roster) ? roster : Object.values(roster);
+    var student = arr.find(function(s){ return s.cls === cls && s.num === num; });
+    var name = student ? student.name : num + '번';
+
+    return fbRef('summerAttend/' + today + '/' + cls + '/' + idx + '/' + period).set(true)
+      .then(function() { showSuccess(name, cls); });
+  }).catch(function(e) {
+    showError('출석 저장 오류: ' + e.message);
+  });
+}
+
+window.addEventListener('load', function() {
+  fbInit();
+  firebase.auth().signOut(); // 이전 세션 초기화
+  showLogin();
+});
+</script>
+</body>
+</html>
