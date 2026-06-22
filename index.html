@@ -5266,22 +5266,11 @@ var summerAttendDate = null;
 function renderSummerDateBtns() {
   var container = document.getElementById('summer-date-btns');
   if (!container) return;
-  var now = new Date();
-  var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  var dates = SUMMER_DATES.slice();
-  // 오늘 날짜가 여름방학 기간 외이면 맨 앞에 추가
-  var inList = dates.some(function(d){ return d.date === today; });
-  if (!inList) {
-    var m = String(now.getMonth()+1), day = String(now.getDate());
-    var days = ['일','월','화','수','목','금','토'];
-    var w = days[now.getDay()];
-    dates = [{date:today, label:m+'/'+day+'('+w+') 오늘', today:true}].concat(dates);
-  }
-  container.innerHTML = dates.map(function(d) {
+  container.innerHTML = SUMMER_DATES.map(function(d) {
     var active = d.date === summerAttendDate;
     return '<button onclick="selectSummerDate(\''+d.date+'\',\''+d.label+'\')" style="'
       + 'padding:7px 12px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;border:2px solid '
-      + (active ? 'var(--navy);background:var(--navy);color:#fff;' : (d.today ? '#f97316;background:#fff7ed;color:#f97316;' : '#e2e8f0;background:#fff;color:var(--g600);'))
+      + (active ? 'var(--navy);background:var(--navy);color:#fff;' : '#e2e8f0;background:#fff;color:var(--g600);')
       + '">'+d.label+'</button>';
   }).join('');
 }
