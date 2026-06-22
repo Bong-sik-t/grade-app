@@ -2,6 +2,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/student", "destination": "/student.html" }
+    { "source": "/student", "destination": "/student.html" },
+    { "source": "/summer-student", "destination": "/summer-student.html" }
   ]
 }

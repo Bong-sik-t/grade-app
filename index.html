@@ -496,6 +496,7 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div class="nav-tab" onclick="switchTab('roster',this)">👥 학생 관리</div>
     <div class="nav-tab" onclick="switchTab('jumper',this)">🧥 점퍼 사이즈</div>
     <div class="nav-tab" onclick="switchTab('volunteer',this)">🤝 봉사활동</div>
+    <div class="nav-tab" onclick="switchTab('summer',this)">🏖️ 여름방학 자습</div>
     <div class="nav-tab" onclick="switchTab('settings',this)">⚙️ 설정</div>
   </nav>
 </header>
@@ -538,7 +539,6 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <span class="month-nav-label" id="yaja-month-label"></span>
     <button class="month-nav-btn" onclick="changeYajaMonth(1)">›</button>
     <div class="month-quick" id="yaja-month-quick"></div>
-    <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="copyPrevMonthYaja()" title="이전 달 야자 신청 내용을 이번 달로 복사합니다">📋 이전 달 복사</button>
   </div>
   <div class="sub-tabs no-print">
     <div class="sub-tab active" onclick="switchSubTab('yaja-input',this)">📝 반별 입력</div>
@@ -857,6 +857,63 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 </div>
 
 
+<!-- ══ 여름방학 자습 ══ -->
+<div id="tab-summer" class="section">
+  <div class="section-header">
+    <div class="section-title">🏖️ 여름방학 자습</div>
+    <div style="display:flex;gap:8px;" class="no-print">
+      <a href="summer-student.html" target="_blank" class="btn btn-outline btn-sm">📝 학생 신청 페이지</a>
+    </div>
+  </div>
+  <div class="sub-tabs no-print">
+    <div class="sub-tab active" onclick="switchSummerTab('summer-supervisor',this)">📋 감독 명단</div>
+    <div class="sub-tab" onclick="switchSummerTab('summer-attend',this)">✅ 학생 출석 현황</div>
+    <div class="sub-tab" onclick="switchSummerTab('summer-apply',this)">📊 학생 신청 현황</div>
+  </div>
+
+  <!-- 감독 명단 -->
+  <div id="summer-supervisor" class="sub-section active">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--g600);">날짜별 감독 선생님을 직접 입력하세요.</div>
+      <button class="btn btn-primary btn-sm" onclick="openSummerSvModal()">+ 감독 추가</button>
+    </div>
+    <div style="background:#fff;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f4f6fb;">
+            <th style="padding:10px 14px;text-align:left;border-bottom:2px solid #c8d0e0;">날짜</th>
+            <th style="padding:10px 14px;text-align:center;border-bottom:2px solid #c8d0e0;">교시</th>
+            <th style="padding:10px 14px;text-align:left;border-bottom:2px solid #c8d0e0;">감독 선생님</th>
+            <th style="padding:10px 14px;text-align:left;border-bottom:2px solid #c8d0e0;">비고</th>
+            <th style="padding:10px 14px;text-align:center;border-bottom:2px solid #c8d0e0;" class="no-print">관리</th>
+          </tr>
+        </thead>
+        <tbody id="summer-sv-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 학생 출석 현황 -->
+  <div id="summer-attend" class="sub-section">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="font-size:14px;font-weight:800;color:var(--navy);">📅 날짜 선택</div>
+      <input type="date" id="summer-attend-date" style="padding:6px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;" onchange="renderSummerAttend()">
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-sm" style="background:#f0fdf4;border:1.5px solid #86efac;color:#16a34a;font-weight:800;" onclick="summerAttendAllAm()">✅ 오전 전원</button>
+        <button class="btn btn-sm" style="background:#eff6ff;border:1.5px solid #93c5fd;color:#1d4ed8;font-weight:800;" onclick="summerAttendAllPm()">✅ 오후 전원</button>
+      </div>
+    </div>
+    <div id="summer-attend-grid" class="class-grid"></div>
+  </div>
+
+  <!-- 학생 신청 현황 -->
+  <div id="summer-apply" class="sub-section">
+    <p style="font-size:13px;color:var(--g600);margin-bottom:16px;font-weight:700;">📌 여름방학 자습을 신청한 학생 목록입니다.</p>
+    <div id="summer-apply-grid" class="class-grid"></div>
+  </div>
+</div>
+
+
 <!-- 점퍼 학급별 인쇄 모달 -->
 <div class="modal-overlay" id="modal-jumper-print">
   <div class="modal" style="max-width:360px;">
@@ -901,6 +958,27 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <div id="period-status" style="margin-top:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:700;display:none;"></div>
   </div>
 
+  <!-- 여름방학 자습 신청 기간 설정 -->
+  <div style="background:#fff;border-radius:12px;border:1.5px solid #e2e8f0;padding:24px;max-width:480px;margin-bottom:20px;">
+    <div style="font-size:15px;font-weight:900;color:#1e3a5f;margin-bottom:6px;">🏖️ 여름방학 자습 신청 기간 설정</div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:18px;">설정한 기간에만 여름방학 자습 학생 신청 페이지가 열립니다. 비워두면 항상 열립니다.</p>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label style="font-size:13px;font-weight:700;color:#475569;width:80px;">시작일</label>
+        <input type="date" id="setting-summer-start" style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label style="font-size:13px;font-weight:700;color:#475569;width:80px;">마감일</label>
+        <input type="date" id="setting-summer-end" style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+      </div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;align-items:center;">
+      <button class="btn btn-primary btn-sm" onclick="saveSummerAppPeriod()">💾 저장</button>
+      <button class="btn btn-outline btn-sm" onclick="clearSummerAppPeriod()">🗑 기간 삭제 (항상 열림)</button>
+    </div>
+    <div id="summer-period-status" style="margin-top:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:700;display:none;"></div>
+  </div>
+
   <!-- 기숙사 학생 관리 -->
   <div style="background:#fff;border-radius:12px;border:1.5px solid #e2e8f0;padding:24px;max-width:480px;margin-bottom:20px;">
     <div style="font-size:15px;font-weight:900;color:#1e3a5f;margin-bottom:6px;">🏠 기숙사 학생 관리</div>
@@ -939,6 +1017,53 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 </main>
 
 <!-- ══ MODALS ══ -->
+
+<!-- 여름방학 감독 추가/수정 모달 -->
+<div class="modal-overlay" id="modal-summer-sv">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-title" id="summer-sv-modal-title">감독 추가</div>
+    <input type="hidden" id="summer-sv-edit-idx" value="-1">
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--g600);display:block;margin-bottom:4px;">날짜</label>
+        <input type="date" id="summer-sv-date" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--g600);display:block;margin-bottom:4px;">교시</label>
+        <select id="summer-sv-period" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+          <option value="오전">오전</option>
+          <option value="오후">오후</option>
+          <option value="종일">종일</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--g600);display:block;margin-bottom:4px;">감독 선생님</label>
+        <input type="text" id="summer-sv-name" placeholder="이름 입력" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--g600);display:block;margin-bottom:4px;">비고</label>
+        <input type="text" id="summer-sv-memo" placeholder="비고 (선택)" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm" style="flex:1;" onclick="saveSummerSv()">저장</button>
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="closeModal('modal-summer-sv')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 공용 확인 모달 -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-title" id="confirm-modal-title"></div>
+    <p style="font-size:13px;color:var(--g600);margin-bottom:20px;line-height:1.6;" id="confirm-modal-msg"></p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm" style="flex:1;" onclick="doConfirmModal()">확인</button>
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="closeModal('modal-confirm')">취소</button>
+    </div>
+  </div>
+</div>
+
 <!-- 달력 날짜 이벤트 모달 -->
 <div class="modal-overlay" id="modal-day-events">
   <div class="modal" style="max-width:340px;">
@@ -1714,6 +1839,7 @@ function switchTab(name,el){
   if(name==='jumper') renderJumperTable();
   if(name==='settings') renderSettingsTab();
   if(name==='volunteer') renderVolunteerTab();
+  if(name==='summer') loadSummerData();
 }
 function switchSubTab(id,el){
   document.querySelectorAll('#tab-yaja .sub-section,#tab-supervisor .sub-section').forEach(s=>s.classList.remove('active'));
@@ -1955,7 +2081,10 @@ function renderYajaGrid(){
     gridHtml += '<div class="class-card" onclick="openStudentModal(\'' + cls + '\')">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
       + '<div class="class-num" style="font-size:18px;margin:0;">'+cls+'반</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
       + '<div style="font-size:12px;color:var(--navy);font-weight:800;">신청 '+clsUniq+'명</div>'
+      + '<button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px;" onclick="event.stopPropagation();copyPrevMonthYajaForClass(\''+cls+'\')" title="이전 달 복사">📋 이전달</button>'
+      + '</div>'
       + '</div>'
       + miniTbl
       + '</div>';
@@ -3957,6 +4086,19 @@ function pdfSub(tabName, subId) {
 
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+var _confirmCallback = null;
+function showConfirmModal(title, msg, onConfirm) {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-msg').innerHTML = msg;
+  _confirmCallback = onConfirm;
+  openModal('modal-confirm');
+}
+function doConfirmModal() {
+  closeModal('modal-confirm');
+  if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+}
+
 document.querySelectorAll('.modal-overlay,.student-modal-overlay').forEach(m=>{
   m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});
 });
@@ -4394,10 +4536,53 @@ function printVolunteer() {
 // =====================================================
 var appPeriod = {start: '', end: ''};
 
+var summerAppPeriod = {start:'', end:''};
+
 function renderSettingsTab() {
   document.getElementById('setting-open-start').value = appPeriod.start || '';
   document.getElementById('setting-open-end').value   = appPeriod.end   || '';
   updatePeriodStatus();
+  // 여름방학 자습 기간
+  document.getElementById('setting-summer-start').value = summerAppPeriod.start || '';
+  document.getElementById('setting-summer-end').value   = summerAppPeriod.end   || '';
+  updateSummerPeriodStatus();
+}
+
+function updateSummerPeriodStatus() {
+  var el = document.getElementById('summer-period-status');
+  if (!el) return;
+  var s = summerAppPeriod.start, e = summerAppPeriod.end;
+  if (!s && !e) {
+    el.style.display = 'block'; el.style.background = '#dcfce7'; el.style.color = '#166534';
+    el.textContent = '항상 열림 (기간 미설정)';
+  } else {
+    var today = new Date().toISOString().slice(0,10);
+    var open = (!s || today >= s) && (!e || today <= e);
+    el.style.display = 'block';
+    el.style.background = open ? '#dcfce7' : '#fee2e2';
+    el.style.color = open ? '#166534' : '#991b1b';
+    el.textContent = open ? '현재 신청 가능 (' + (s||'') + (s&&e?' ~ ':'') + (e||'') + ')' : '신청 기간 아님 (' + (s||'') + (s&&e?' ~ ':'') + (e||'') + ')';
+  }
+}
+
+function saveSummerAppPeriod() {
+  var s = document.getElementById('setting-summer-start').value || '';
+  var e = document.getElementById('setting-summer-end').value   || '';
+  summerAppPeriod = {start:s, end:e};
+  fbRef('summerAppPeriod').set(summerAppPeriod).then(function() {
+    updateSummerPeriodStatus();
+    showToast('✅ 여름방학 자습 신청 기간 저장 완료');
+  });
+}
+
+function clearSummerAppPeriod() {
+  summerAppPeriod = {start:'', end:''};
+  document.getElementById('setting-summer-start').value = '';
+  document.getElementById('setting-summer-end').value   = '';
+  fbRef('summerAppPeriod').remove().then(function() {
+    updateSummerPeriodStatus();
+    showToast('🗑 여름방학 자습 신청 기간 삭제 (항상 열림)');
+  });
 }
 
 function updatePeriodStatus() {
@@ -4753,36 +4938,43 @@ function pdfYajaRoster() {
 // ══════════════════════════════════════════
 // 이전 달 복사 (야자 / 석식)
 // ══════════════════════════════════════════
-function copyPrevMonthYaja() {
+function copyPrevMonthYajaForClass(cls) {
   var prev = yajaMonth - 1;
   if (prev < 3) { showToast('⚠️ 3월이 첫 달입니다. 이전 달이 없습니다.'); return; }
-  if (!yajaData[prev]) { showToast('⚠️ ' + prev + '월 데이터가 없습니다.'); return; }
+  if (!yajaData[prev] || !yajaData[prev][cls]) { showToast('⚠️ ' + prev + '월 ' + cls + '반 데이터가 없습니다.'); return; }
 
-  var skipped = 0, copied = 0;
-  CLASSES.forEach(function(cls) {
-    var prevData = yajaData[prev][cls];
-    var curData  = yajaData[yajaMonth][cls];
+  var prevData = yajaData[prev][cls];
+  var curData  = yajaData[yajaMonth][cls];
+
+  // 이번 달에 이미 신청 내용이 있는지 확인
+  var hasAny = curData.some(function(s) {
+    return DOW_KEYS.some(function(k) { return s[k] && (s[k].p8 || s[k].y1 || s[k].y2); });
+  });
+
+  function doCopy() {
+    var copied = 0;
     curData.forEach(function(_, i) {
       if (!prevData[i]) return;
-      // 이번 달에 이미 신청 내용이 있는 학생은 건너뜀
-      var alreadyHas = DOW_KEYS.some(function(k) {
-        var d = curData[i][k];
-        return d && (d.p8 || d.y1 || d.y2);
-      });
-      if (alreadyHas) { skipped++; return; }
       DOW_KEYS.forEach(function(k) {
         var pd = prevData[i][k] || {p8:false,y1:false,y2:false};
         curData[i][k] = {p8:!!pd.p8, y1:!!pd.y1, y2:!!pd.y2};
       });
       copied++;
     });
-  });
+    renderYajaGrid();
+    scheduleSave();
+    showToast('✅ ' + prev + '월 → ' + yajaMonth + '월 ' + cls + '반 복사 완료 (' + copied + '명)');
+  }
 
-  renderYajaGrid();
-  scheduleSave();
-  var msg = '✅ ' + prev + '월 → ' + yajaMonth + '월 복사 완료 (' + copied + '명)';
-  if (skipped > 0) msg += '  |  이미 신청된 ' + skipped + '명은 유지';
-  showToast(msg);
+  if (hasAny) {
+    showConfirmModal(
+      cls + '반 이전 달 복사',
+      yajaMonth + '월 ' + cls + '반에 이미 신청된 내용이 있습니다.<br>' + prev + '월 내용으로 덮어쓰시겠습니까?',
+      doCopy
+    );
+  } else {
+    doCopy();
+  }
 }
 
 function copyPrevMonthSeoksi() {
@@ -4819,6 +5011,220 @@ function copyPrevMonthSeoksi() {
   if (skipped > 0) msg += '  |  이미 신청된 ' + skipped + '명은 유지';
   showToast(msg);
 }
+// ══════════════════════════════════════════
+// 여름방학 자습
+// ══════════════════════════════════════════
+var summerSupervisors = []; // [{date,period,name,memo}]
+var summerAttendData  = {}; // {dateStr: {cls: {idx: {am:bool,pm:bool}}}}
+var summerApplyData   = {}; // {cls: {idx: true}}
+
+function switchSummerTab(id, el) {
+  document.querySelectorAll('#tab-summer .sub-section').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('#tab-summer .sub-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'summer-supervisor') renderSummerSv();
+  if (id === 'summer-attend')     renderSummerAttend();
+  if (id === 'summer-apply')      renderSummerApply();
+}
+
+// ── 감독 명단 ──
+function renderSummerSv() {
+  var tbody = document.getElementById('summer-sv-tbody');
+  if (!tbody) return;
+  if (!summerSupervisors.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--g400);">등록된 감독이 없습니다.</td></tr>';
+    return;
+  }
+  var sorted = summerSupervisors.slice().sort(function(a,b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  tbody.innerHTML = sorted.map(function(sv, i) {
+    var realIdx = summerSupervisors.indexOf(sv);
+    var periodColor = sv.period==='오전'?'#1d4ed8':sv.period==='오후'?'#15803d':'#92400e';
+    return '<tr style="border-bottom:1px solid #e8ecf4;">'
+      + '<td style="padding:10px 14px;font-weight:700;">' + sv.date + '</td>'
+      + '<td style="padding:10px 14px;text-align:center;font-weight:800;color:'+periodColor+';">' + sv.period + '</td>'
+      + '<td style="padding:10px 14px;font-weight:700;">' + sv.name + '</td>'
+      + '<td style="padding:10px 14px;color:var(--g600);">' + (sv.memo||'') + '</td>'
+      + '<td style="padding:10px 14px;text-align:center;" class="no-print">'
+      + '<button class="btn btn-outline btn-sm" style="font-size:11px;margin-right:4px;" onclick="editSummerSv('+realIdx+')">수정</button>'
+      + '<button class="btn btn-sm" style="font-size:11px;background:#fef2f2;border:1.5px solid #fca5a5;color:#dc2626;" onclick="deleteSummerSv('+realIdx+')">삭제</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function openSummerSvModal(idx) {
+  document.getElementById('summer-sv-modal-title').textContent = (idx === undefined) ? '감독 추가' : '감독 수정';
+  document.getElementById('summer-sv-edit-idx').value = (idx === undefined) ? -1 : idx;
+  if (idx !== undefined && summerSupervisors[idx]) {
+    var sv = summerSupervisors[idx];
+    document.getElementById('summer-sv-date').value   = sv.date   || '';
+    document.getElementById('summer-sv-period').value = sv.period || '오전';
+    document.getElementById('summer-sv-name').value   = sv.name   || '';
+    document.getElementById('summer-sv-memo').value   = sv.memo   || '';
+  } else {
+    document.getElementById('summer-sv-date').value   = '';
+    document.getElementById('summer-sv-period').value = '오전';
+    document.getElementById('summer-sv-name').value   = '';
+    document.getElementById('summer-sv-memo').value   = '';
+  }
+  openModal('modal-summer-sv');
+}
+
+function editSummerSv(idx) { openSummerSvModal(idx); }
+
+function saveSummerSv() {
+  var date   = document.getElementById('summer-sv-date').value.trim();
+  var period = document.getElementById('summer-sv-period').value;
+  var name   = document.getElementById('summer-sv-name').value.trim();
+  var memo   = document.getElementById('summer-sv-memo').value.trim();
+  if (!date || !name) { showToast('⚠️ 날짜와 이름을 입력하세요.'); return; }
+  var idx = parseInt(document.getElementById('summer-sv-edit-idx').value);
+  var entry = {date:date, period:period, name:name, memo:memo};
+  if (idx >= 0) { summerSupervisors[idx] = entry; }
+  else          { summerSupervisors.push(entry); }
+  closeModal('modal-summer-sv');
+  renderSummerSv();
+  saveSummerData();
+  showToast('✅ 감독 저장 완료');
+}
+
+function deleteSummerSv(idx) {
+  showConfirmModal('감독 삭제', '해당 감독을 삭제하시겠습니까?', function() {
+    summerSupervisors.splice(idx, 1);
+    renderSummerSv();
+    saveSummerData();
+    showToast('🗑 삭제 완료');
+  });
+}
+
+// ── 학생 출석 ──
+function renderSummerAttend() {
+  var dateEl = document.getElementById('summer-attend-date');
+  if (!dateEl) return;
+  if (!dateEl.value) { dateEl.value = new Date().toISOString().slice(0,10); }
+  var dateStr = dateEl.value;
+  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
+  var grid = document.getElementById('summer-attend-grid');
+  if (!grid) return;
+  var html = '';
+  CLASSES.forEach(function(cls) {
+    if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
+    var students = CLASS_STUDENTS[cls] || [];
+    var amCnt = 0, pmCnt = 0;
+    students.forEach(function(_, i) {
+      var a = summerAttendData[dateStr][cls][i] || {};
+      if (a.am) amCnt++;
+      if (a.pm) pmCnt++;
+    });
+    html += '<div class="class-card" style="cursor:default;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      + '<div class="class-num" style="font-size:18px;margin:0;">'+cls+'반</div>'
+      + '<div style="font-size:11px;color:var(--g600);">오전 '+amCnt+'명 / 오후 '+pmCnt+'명</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px;">';
+    students.forEach(function(st, i) {
+      var a = summerAttendData[dateStr][cls][i] || {};
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;">'
+        + '<span style="font-size:12px;color:var(--g400);min-width:20px;">'+st.num+'</span>'
+        + '<span style="font-size:13px;font-weight:700;flex:1;">'+st.name+'</span>'
+        + '<label style="display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;cursor:pointer;color:#1d4ed8;">'
+        + '<input type="checkbox" '+(a.am?'checked':'')
+        + ' onchange="toggleSummerAttend(\''+dateStr+'\',\''+cls+'\','+i+',\'am\',this.checked)" style="accent-color:#1d4ed8;width:14px;height:14px;"> 오전</label>'
+        + '<label style="display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;cursor:pointer;color:#15803d;">'
+        + '<input type="checkbox" '+(a.pm?'checked':'')
+        + ' onchange="toggleSummerAttend(\''+dateStr+'\',\''+cls+'\','+i+',\'pm\',this.checked)" style="accent-color:#15803d;width:14px;height:14px;"> 오후</label>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function toggleSummerAttend(dateStr, cls, idx, period, val) {
+  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
+  if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
+  if (!summerAttendData[dateStr][cls][idx]) summerAttendData[dateStr][cls][idx] = {};
+  summerAttendData[dateStr][cls][idx][period] = val;
+  fbRef('summerAttend/' + dateStr + '/' + cls + '/' + idx + '/' + period).set(val || null);
+  renderSummerAttend();
+}
+
+function summerAttendAllAm() {
+  var dateStr = document.getElementById('summer-attend-date').value;
+  if (!dateStr) return;
+  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
+  var updates = {};
+  CLASSES.forEach(function(cls) {
+    if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
+    (CLASS_STUDENTS[cls]||[]).forEach(function(_, i) {
+      if (!summerAttendData[dateStr][cls][i]) summerAttendData[dateStr][cls][i] = {};
+      summerAttendData[dateStr][cls][i].am = true;
+      updates['summerAttend/'+dateStr+'/'+cls+'/'+i+'/am'] = true;
+    });
+  });
+  fbRef('').update(updates).then(function(){ renderSummerAttend(); showToast('✅ 오전 전원 출석'); });
+}
+
+function summerAttendAllPm() {
+  var dateStr = document.getElementById('summer-attend-date').value;
+  if (!dateStr) return;
+  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
+  var updates = {};
+  CLASSES.forEach(function(cls) {
+    if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
+    (CLASS_STUDENTS[cls]||[]).forEach(function(_, i) {
+      if (!summerAttendData[dateStr][cls][i]) summerAttendData[dateStr][cls][i] = {};
+      summerAttendData[dateStr][cls][i].pm = true;
+      updates['summerAttend/'+dateStr+'/'+cls+'/'+i+'/pm'] = true;
+    });
+  });
+  fbRef('').update(updates).then(function(){ renderSummerAttend(); showToast('✅ 오후 전원 출석'); });
+}
+
+// ── 학생 신청 현황 ──
+function renderSummerApply() {
+  var grid = document.getElementById('summer-apply-grid');
+  if (!grid) return;
+  var html = '';
+  CLASSES.forEach(function(cls) {
+    var students = CLASS_STUDENTS[cls] || [];
+    var applied = [];
+    Object.keys(summerApplyData[cls] || {}).forEach(function(i) {
+      if (summerApplyData[cls][i] && students[i]) applied.push(students[i].name);
+    });
+    html += '<div class="class-card" style="cursor:default;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      + '<div class="class-num" style="font-size:18px;margin:0;">'+cls+'반</div>'
+      + '<div style="font-size:12px;color:var(--navy);font-weight:800;">'+applied.length+'명</div>'
+      + '</div>'
+      + (applied.length ? '<div style="font-size:12px;color:var(--g600);line-height:1.8;">'+applied.join(', ')+'</div>'
+                        : '<div style="font-size:12px;color:var(--g400);">신청자 없음</div>')
+      + '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+// ── Firebase 저장/로드 ──
+function saveSummerData() {
+  fbRef('summerSupervisors').set(summerSupervisors);
+}
+
+function loadSummerData() {
+  fbRef('summerSupervisors').once('value').then(function(snap) {
+    summerSupervisors = snap.val() || [];
+    renderSummerSv();
+  });
+  fbRef('summerApply').once('value').then(function(snap) {
+    summerApplyData = snap.val() || {};
+    if (document.getElementById('summer-apply').classList.contains('active')) renderSummerApply();
+  });
+  // summerAttend는 날짜별로 필요할 때 로드
+  fbRef('summerAttend').once('value').then(function(snap) {
+    summerAttendData = snap.val() || {};
+  });
+}
+
 function scheduleSave() {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(doSave, 1500);
@@ -5410,6 +5816,10 @@ function loadFromSheet() {
         // 신청 기간 복원
         if (r.appPeriod) {
           appPeriod = {start: r.appPeriod.start||'', end: r.appPeriod.end||''};
+        }
+        // 여름방학 자습 신청 기간 복원
+        if (r.summerAppPeriod) {
+          summerAppPeriod = {start: r.summerAppPeriod.start||'', end: r.summerAppPeriod.end||''};
         }
         // 학사일정 (날짜 문자열 보정)
         if (r.scheduleData&&r.scheduleData.length)

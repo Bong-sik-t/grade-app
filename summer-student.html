@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>1학년 여름방학 자습 신청</title>
+<meta name="theme-color" content="#1e3a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="/firebase-ready.js"></script>
+<style>
+  :root {
+    --navy:#1e3a5f; --navy2:#2d5282; --gold:#f59e0b; --green:#16a34a;
+    --red:#dc2626; --g100:#f1f5f9; --g200:#e2e8f0; --g400:#94a3b8; --g600:#475569;
+    --summer:#f97316; --summer2:#fb923c;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Noto Sans KR',sans-serif; background:#fff8f0; min-height:100vh; }
+
+  .header {
+    background:linear-gradient(135deg,var(--summer) 0%,var(--summer2) 100%);
+    color:#fff; padding:20px 20px 16px; text-align:center;
+  }
+  .header h1 { font-size:20px; font-weight:900; letter-spacing:-0.5px; }
+  .header p  { font-size:12px; opacity:.85; margin-top:4px; }
+
+  .steps {
+    display:flex; align-items:center; justify-content:center;
+    gap:0; padding:14px 20px; background:#fff;
+    border-bottom:2px solid var(--g200);
+  }
+  .step { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+  .step-circle {
+    width:28px; height:28px; border-radius:50%;
+    border:2px solid var(--g200); background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; color:var(--g400); transition:all .2s;
+  }
+  .step-circle.active { background:var(--summer); border-color:var(--summer); color:#fff; }
+  .step-circle.done   { background:var(--green); border-color:var(--green); color:#fff; }
+  .step-label { font-size:10px; color:var(--g400); font-weight:700; }
+  .step-label.active { color:var(--summer); }
+  .step-divider { width:30px; height:2px; background:var(--g200); margin-bottom:14px; flex-shrink:0; }
+  .step-divider.done { background:var(--green); }
+
+  .container { max-width:480px; margin:0 auto; padding:20px 16px 80px; }
+
+  .card {
+    background:#fff; border-radius:16px; padding:20px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:16px;
+  }
+  .card-title {
+    font-size:13px; font-weight:800; color:var(--navy);
+    margin-bottom:14px; display:flex; align-items:center; gap:6px;
+  }
+
+  .cls-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .cls-btn {
+    padding:12px 4px; border-radius:10px;
+    border:2px solid var(--g200); background:#fff;
+    font-size:14px; font-weight:800; cursor:pointer; color:var(--g600);
+    transition:all .15s;
+  }
+  .cls-btn:active { transform:scale(.95); }
+  .cls-btn.selected { background:var(--summer); border-color:var(--summer); color:#fff; }
+
+  .student-list {
+    display:flex; flex-direction:column; gap:2px;
+    max-height:320px; overflow-y:auto;
+    border:1px solid var(--g200); border-radius:10px;
+  }
+  .student-item {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 14px; cursor:pointer;
+    border-bottom:1px solid var(--g200); transition:background .1s;
+  }
+  .student-item:last-child { border-bottom:none; }
+  .student-item:active { background:var(--g100); }
+  .student-item.selected { background:#fff7ed; }
+  .student-num  { font-size:12px; color:var(--g400); min-width:24px; font-weight:700; }
+  .student-name { font-size:15px; font-weight:800; flex:1; }
+  .student-check { font-size:18px; }
+
+  .summary-box { background:var(--g100); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .summary-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 0; border-bottom:1px solid var(--g200);
+  }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-label { font-size:13px; color:var(--g600); font-weight:700; }
+  .summary-value { font-size:13px; font-weight:900; color:var(--navy); }
+
+  .btn-primary {
+    width:100%; padding:16px; border-radius:14px;
+    background:linear-gradient(135deg,var(--summer),var(--summer2));
+    color:#fff; font-size:16px; font-weight:900;
+    border:none; cursor:pointer; letter-spacing:-.3px;
+    box-shadow:0 4px 12px rgba(249,115,22,.3);
+    transition:all .15s;
+  }
+  .btn-primary:active { transform:scale(.98); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-secondary {
+    width:100%; padding:12px; border-radius:12px;
+    background:#fff; color:var(--navy); font-size:14px; font-weight:800;
+    border:2px solid var(--navy); cursor:pointer; margin-top:10px;
+    transition:all .15s;
+  }
+  .btn-secondary:active { background:var(--g100); }
+
+  .done-screen { text-align:center; padding:40px 20px; }
+  .done-icon  { font-size:64px; margin-bottom:16px; }
+  .done-title { font-size:22px; font-weight:900; color:var(--summer); margin-bottom:8px; }
+  .done-sub   { font-size:14px; color:var(--g600); line-height:1.6; }
+
+  .loading-overlay {
+    position:fixed; inset:0; background:rgba(255,255,255,.9);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:999; gap:14px;
+  }
+  .spinner {
+    width:40px; height:40px; border-radius:50%;
+    border:4px solid var(--g200); border-top-color:var(--summer);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loading-text { font-size:14px; font-weight:800; color:var(--summer); }
+
+  .toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+    background:rgba(15,23,42,.9); color:#fff;
+    padding:12px 20px; border-radius:24px; font-size:13px; font-weight:700;
+    white-space:nowrap; z-index:9999; transition:transform .3s; pointer-events:none;
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  .screen { display:none; }
+  .screen.active { display:block; }
+
+  .info-banner {
+    background:linear-gradient(135deg,#fff7ed,#ffedd5);
+    border:1.5px solid #fed7aa; border-radius:12px;
+    padding:14px 16px; margin-bottom:16px;
+    font-size:13px; color:#9a3412; line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">처리 중...</div>
+</div>
+
+<div class="header">
+  <h1>🏖️ 경남고 1학년 여름방학 자습 신청</h1>
+  <p id="header-sub">반과 이름을 선택해주세요</p>
+</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-circle" id="step1-circle">1</div>
+    <div class="step-label" id="step1-label">반·학생</div>
+  </div>
+  <div class="step-divider" id="div1"></div>
+  <div class="step">
+    <div class="step-circle" id="step2-circle">2</div>
+    <div class="step-label" id="step2-label">확인·제출</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 신청 기간 외 -->
+  <div id="screen-closed" class="screen" style="display:none;">
+    <div class="card" style="text-align:center;padding:40px 24px;">
+      <div style="font-size:56px;margin-bottom:16px;">🔒</div>
+      <div style="font-size:20px;font-weight:900;color:var(--navy);margin-bottom:12px;">신청 기간이 아닙니다</div>
+      <div id="closed-msg" style="font-size:14px;color:#64748b;line-height:1.7;"></div>
+    </div>
+  </div>
+
+  <!-- STEP 1: 반 & 학생 선택 -->
+  <div id="screen-1" class="screen">
+    <div class="info-banner">
+      📌 여름방학 자습 신청입니다. 자신의 <b>반</b>과 <b>이름</b>을 선택 후 신청해주세요.
+    </div>
+    <div class="card">
+      <div class="card-title">🏷 반 선택</div>
+      <div class="cls-grid" id="cls-grid"></div>
+    </div>
+    <div class="card" id="student-card" style="display:none;">
+      <div class="card-title">👤 학생 선택</div>
+      <div class="student-list" id="student-list"></div>
+    </div>
+    <button class="btn-primary" id="btn-step1" onclick="goStep(2)" disabled>다음 →</button>
+  </div>
+
+  <!-- STEP 2: 확인 및 제출 -->
+  <div id="screen-2" class="screen">
+    <div class="card">
+      <div class="card-title">✅ 신청 내용 확인</div>
+      <div class="summary-box" id="summary-box"></div>
+      <p style="font-size:11px;color:var(--g400);line-height:1.7;">
+        위 내용이 맞으면 <b>신청하기</b> 버튼을 눌러주세요.<br>
+        이미 신청한 경우 재신청해도 동일하게 처리됩니다.
+      </p>
+    </div>
+    <button class="btn-primary" onclick="submitApplication()">📨 신청하기</button>
+    <button class="btn-secondary" onclick="goStep(1)">← 이전</button>
+  </div>
+
+  <!-- 완료 화면 -->
+  <div id="screen-done" class="screen">
+    <div class="done-screen">
+      <div class="done-icon">🎉</div>
+      <div class="done-title">신청 완료!</div>
+      <div class="done-sub" id="done-msg"></div>
+    </div>
+    <button class="btn-primary" onclick="resetForm()">새로 신청하기</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CLASSES = ['1-1','1-2','1-3','1-4','1-5','1-6','1-7'];
+const CLASS_STUDENTS = {
+  '1-1': [{num:1,name:'강건률'}, {num:2,name:'김건우'}, {num:3,name:'김규인'}, {num:4,name:'김동현'}, {num:5,name:'김승환'}, {num:6,name:'김재하'}, {num:7,name:'김하율'}, {num:8,name:'김홍윤'}, {num:9,name:'박기태'}, {num:10,name:'박도윤'}, {num:11,name:'박준서'}, {num:12,name:'박준재'}, {num:13,name:'박진서'}, {num:14,name:'손정민'}, {num:15,name:'염지훈'}, {num:16,name:'왕유진'}, {num:17,name:'이도현'}, {num:18,name:'이서후'}, {num:19,name:'이예준'}, {num:20,name:'이지백'}, {num:21,name:'정정헌'}, {num:22,name:'채서형'}, {num:23,name:'최예준'}, {num:24,name:'황다인'}, {num:25,name:'강시우'}, {num:26,name:'정준우'}],
+  '1-2': [{num:1,name:'강현욱'}, {num:2,name:'김강민'}, {num:3,name:'김대환'}, {num:4,name:'김도율'}, {num:5,name:'김동권'}, {num:6,name:'김준형'}, {num:7,name:'김찬영'}, {num:8,name:'남민호'}, {num:9,name:'류정현'}, {num:10,name:'문성민'}, {num:11,name:'박도건'}, {num:12,name:'백지호'}, {num:13,name:'유이찬'}, {num:14,name:'이건우'}, {num:15,name:'이서준'}, {num:16,name:'이현준'}, {num:17,name:'정동현'}, {num:18,name:'정진온'}, {num:19,name:'조원준'}, {num:20,name:'조준이'}, {num:21,name:'최상필'}, {num:22,name:'하우석'}, {num:23,name:'황덕현'}, {num:24,name:'강시윤'}, {num:25,name:'이승현'}, {num:26,name:'정현준'}, {num:27,name:'IUNVITALII'}],
+  '1-3': [{num:1,name:'강태겸'}, {num:2,name:'고다현'}, {num:3,name:'김민승'}, {num:4,name:'김윤후'}, {num:5,name:'남관우'}, {num:6,name:'남도율'}, {num:7,name:'류시헌'}, {num:8,name:'목민재'}, {num:9,name:'문동욱'}, {num:10,name:'문지후'}, {num:11,name:'유명준'}, {num:12,name:'윤성민'}, {num:13,name:'전희윤'}, {num:14,name:'정시훈'}, {num:15,name:'정은찬'}, {num:16,name:'정이든'}, {num:17,name:'조지원'}, {num:18,name:'조현우'}, {num:19,name:'최승주'}, {num:20,name:'최지호'}, {num:21,name:'하준우'}, {num:22,name:'한재민'}, {num:23,name:'홍하임'}, {num:24,name:'황승현'}, {num:25,name:'권하솜'}, {num:26,name:'손현승'}],
+  '1-4': [{num:1,name:'강용훈'}, {num:2,name:'고민채'}, {num:3,name:'고한범'}, {num:4,name:'권재현'}, {num:5,name:'김건우'}, {num:6,name:'김도훈'}, {num:7,name:'김동환'}, {num:8,name:'김태우'}, {num:9,name:'류성우'}, {num:10,name:'박경민'}, {num:11,name:'박병준'}, {num:12,name:'박주형'}, {num:13,name:'박해민'}, {num:14,name:'사공도윤'}, {num:15,name:'신민석'}, {num:16,name:'이도훈'}, {num:17,name:'이태한'}, {num:18,name:'정태성'}, {num:19,name:'조강유'}, {num:20,name:'조민찬'}, {num:21,name:'최규빈'}, {num:22,name:'최준화'}, {num:23,name:'하영재'}, {num:24,name:'김기욱'}, {num:25,name:'성정빈'}, {num:26,name:'조상협'}, {num:27,name:'조현준'}],
+  '1-5': [{num:1,name:'곽무빈'}, {num:2,name:'김대원'}, {num:3,name:'김도윤'}, {num:4,name:'김지상'}, {num:5,name:'류송재'}, {num:6,name:'모승윤'}, {num:7,name:'박성현'}, {num:8,name:'방석훈'}, {num:9,name:'서용한'}, {num:10,name:'서주완'}, {num:11,name:'오대훈'}, {num:12,name:'이도윤'}, {num:13,name:'이병두'}, {num:14,name:'이승준'}, {num:15,name:'이주빈'}, {num:16,name:'이준영'}, {num:17,name:'임운종'}, {num:18,name:'임종주'}, {num:19,name:'정승우'}, {num:20,name:'정지훈'}, {num:21,name:'하우진'}, {num:22,name:'홍시온'}, {num:23,name:'김남욱'}, {num:24,name:'반하율'}, {num:25,name:'하성욱'}],
+  '1-6': [{num:1,name:'강상윤'}, {num:2,name:'김민규'}, {num:3,name:'김민석'}, {num:4,name:'김민재'}, {num:5,name:'김범석'}, {num:6,name:'김조현'}, {num:7,name:'김태민'}, {num:8,name:'류지오'}, {num:9,name:'박서준'}, {num:10,name:'박성현'}, {num:11,name:'박한규'}, {num:12,name:'송유호'}, {num:13,name:'신건우'}, {num:14,name:'신종혁'}, {num:15,name:'윤예준'}, {num:16,name:'이주혁'}, {num:17,name:'이진성'}, {num:18,name:'이하율'}, {num:19,name:'장민성'}, {num:20,name:'정우진'}, {num:21,name:'주한웅'}, {num:22,name:'진승민'}, {num:23,name:'추민결'}, {num:24,name:'김서진'}, {num:25,name:'김현중'}, {num:26,name:'하현준'}],
+  '1-7': [{num:1,name:'강도현'}, {num:2,name:'고부성'}, {num:3,name:'공장우'}, {num:4,name:'곽민준'}, {num:5,name:'구현명'}, {num:6,name:'김규현'}, {num:7,name:'김도형'}, {num:8,name:'김세현'}, {num:9,name:'김에덴'}, {num:10,name:'박서우'}, {num:11,name:'박세진'}, {num:12,name:'손민재'}, {num:13,name:'윤희범'}, {num:14,name:'이동우'}, {num:15,name:'이상인'}, {num:16,name:'이성윤'}, {num:17,name:'이승민'}, {num:18,name:'임태경'}, {num:19,name:'임효준'}, {num:20,name:'정예찬'}, {num:21,name:'정재원'}, {num:22,name:'조성호'}, {num:23,name:'최경민'}, {num:24,name:'최호영'}, {num:25,name:'김상훈'}, {num:26,name:'박찬욱'}],
+};
+
+var selCls = null, selIdx = null;
+var appClosed = false;
+
+var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
+function syncRosterToClassStudents(roster) {
+  if (!roster || !roster.length) return;
+  roster.forEach(function(s) {
+    if (!CLASS_STUDENTS[s.cls]) return;
+    if (!CLASS_STUDENTS[s.cls].find(function(x){ return x.num===s.num&&x.name===s.name; })) {
+      CLASS_STUDENTS[s.cls].push({num:s.num, name:s.name});
+      CLASS_STUDENTS[s.cls].sort(function(a,b){ return a.num-b.num; });
+    }
+  });
+  CLASSES.forEach(function(cls) {
+    CLASS_STUDENTS[cls] = CLASS_STUDENTS[cls].filter(function(x) {
+      var entry = roster.find(function(s){ return s.cls===cls&&s.num===x.num&&s.name===x.name; });
+      return !entry || STATUS_ACTIVE_SET.has(entry.status);
+    });
+  });
+}
+
+window.addEventListener('load', function() {
+  showLoading('확인 중...');
+  fbInit();
+  Promise.all([
+    fbRef('summerAppPeriod').once('value'),
+    fbRef('studentRoster').once('value')
+  ]).then(function(snaps) {
+    var period = snaps[0].val() || {};
+    var rosterRaw = snaps[1].val();
+    if (rosterRaw) {
+      var roster = Array.isArray(rosterRaw) ? rosterRaw : Object.values(rosterRaw);
+      if (roster.length) syncRosterToClassStudents(roster);
+    }
+
+    var today = new Date().toISOString().slice(0,10);
+    var s = period.start || '', e = period.end || '';
+    var isOpen = (!s || today >= s) && (!e || today <= e);
+
+    hideLoading();
+
+    if (!isOpen && (s || e)) {
+      var msg = s && e
+        ? '신청 기간: <b>' + s + '</b> ~ <b>' + e + '</b><br><br>해당 기간에 다시 접속해주세요.'
+        : (s ? '신청 시작일: <b>' + s + '</b>' : '현재 신청 기간이 아닙니다.<br>담임 선생님께 문의하세요.');
+      document.getElementById('closed-msg').innerHTML = msg;
+      appClosed = true;
+      document.getElementById('screen-closed').style.display = 'block';
+      document.getElementById('screen-closed').classList.add('active');
+      document.querySelector('.steps').style.display = 'none';
+    } else {
+      buildClsGrid();
+      updateStep(1);
+      document.getElementById('screen-1').classList.add('active');
+    }
+  }).catch(function() {
+    hideLoading();
+    buildClsGrid();
+    updateStep(1);
+    document.getElementById('screen-1').classList.add('active');
+  });
+});
+
+function buildClsGrid() {
+  document.getElementById('cls-grid').innerHTML = CLASSES.map(function(c) {
+    return '<button class="cls-btn" onclick="selectCls(\''+c+'\')" id="cls-btn-'+c+'">'+c+'</button>';
+  }).join('');
+}
+
+function selectCls(cls) {
+  selCls = cls; selIdx = null;
+  document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('selected'); });
+  document.getElementById('cls-btn-'+cls).classList.add('selected');
+  document.getElementById('btn-step1').disabled = true;
+  var students = CLASS_STUDENTS[cls];
+  var card = document.getElementById('student-card');
+  card.style.display = 'block';
+  document.getElementById('student-list').innerHTML = students.map(function(s,i) {
+    return '<div class="student-item" onclick="selectStudent('+i+')" id="stu-'+i+'">'
+      + '<span class="student-num">'+s.num+'</span>'
+      + '<span class="student-name">'+s.name+'</span>'
+      + '<span class="student-check" id="chk-'+i+'"></span>'
+      + '</div>';
+  }).join('');
+}
+
+function selectStudent(i) {
+  selIdx = i;
+  document.querySelectorAll('.student-item').forEach(function(el){ el.classList.remove('selected'); });
+  document.querySelectorAll('.student-check').forEach(function(el){ el.textContent = ''; });
+  document.getElementById('stu-'+i).classList.add('selected');
+  document.getElementById('chk-'+i).textContent = '✅';
+  document.getElementById('btn-step1').disabled = false;
+  document.getElementById('stu-'+i).scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+function goStep(n) {
+  if (appClosed) return;
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById('screen-'+n).classList.add('active');
+  updateStep(n);
+  if (n === 2) buildSummary();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function updateStep(n) {
+  [1,2].forEach(function(i) {
+    var c = document.getElementById('step'+i+'-circle');
+    var l = document.getElementById('step'+i+'-label');
+    if (i < n)      { c.className='step-circle done'; c.textContent='✓'; }
+    else if (i===n) { c.className='step-circle active'; c.textContent=i; }
+    else            { c.className='step-circle'; c.textContent=i; }
+    l.className = 'step-label'+(i===n?' active':'');
+    if (i < 2) document.getElementById('div'+i).className = 'step-divider'+(i<n?' done':'');
+  });
+  var subs = ['','반·학생을 선택하세요','내용을 확인하고 제출하세요'];
+  document.getElementById('header-sub').textContent = subs[n] || '';
+}
+
+function buildSummary() {
+  var s = CLASS_STUDENTS[selCls][selIdx];
+  document.getElementById('summary-box').innerHTML =
+    row('학급', selCls+'반') +
+    row('학생', s.num+'번 '+s.name) +
+    row('신청 항목', '🏖️ 여름방학 자습');
+}
+function row(label, value) {
+  return '<div class="summary-row"><span class="summary-label">'+label+'</span>'
+    +'<span class="summary-value">'+value+'</span></div>';
+}
+
+function submitApplication() {
+  if (appClosed) { showToast('신청 기간이 아닙니다'); return; }
+  if (!selCls || selIdx === null) { showToast('⚠️ 반과 학생을 선택해주세요'); return; }
+  showLoading('신청 중...');
+  fbRef('summerApply/' + selCls + '/' + selIdx).set(true)
+    .then(function() {
+      hideLoading();
+      var s = CLASS_STUDENTS[selCls][selIdx];
+      document.getElementById('done-msg').innerHTML =
+        '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 신청이 완료되었습니다.';
+      document.querySelectorAll('.screen').forEach(function(sc){ sc.classList.remove('active'); });
+      document.getElementById('screen-done').classList.add('active');
+    })
+    .catch(function(e) {
+      hideLoading();
+      showToast('⚠️ 저장 실패: ' + e.message);
+    });
+}
+
+function resetForm() {
+  selCls = null; selIdx = null;
+  document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('selected'); });
+  document.getElementById('student-card').style.display = 'none';
+  document.getElementById('btn-step1').disabled = true;
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById('screen-1').classList.add('active');
+  updateStep(1);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg || '처리 중...';
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+
+var _toastTimer;
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+</script>
+</body>
+</html>
