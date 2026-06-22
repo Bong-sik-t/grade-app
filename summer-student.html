@@ -155,6 +155,8 @@
   .period-option.selected .opt-circle::after {
     content:''; position:absolute; inset:4px; border-radius:50%; background:#fff;
   }
+  #opt-none.selected { border-color:#dc2626; background:#fff5f5; }
+  #opt-none.selected .opt-circle { background:#dc2626; border-color:#dc2626; }
 
   .info-banner {
     background:linear-gradient(135deg,#fff7ed,#ffedd5);
@@ -222,6 +224,7 @@
 
   <!-- STEP 2: 자습 시간 선택 -->
   <div id="screen-2" class="screen">
+    <div id="current-apply-banner" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#1e40af;font-weight:700;"></div>
     <div class="card">
       <div class="card-title">⏰ 자습 시간 선택</div>
       <div style="display:flex;flex-direction:column;gap:12px;">
@@ -237,6 +240,13 @@
           <div style="flex:1;">
             <div style="font-size:15px;font-weight:800;">☀️ 오전 + 오후</div>
             <div style="font-size:12px;color:var(--g400);margin-top:2px;">오전·오후 전부 참여합니다</div>
+          </div>
+        </div>
+        <div class="period-option" id="opt-none" onclick="selectPeriod('none')" style="border-color:#fecaca;">
+          <div class="opt-circle" id="circle-none" style="border-color:#fca5a5;"></div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:800;color:#dc2626;">❌ 신청하지 않음</div>
+            <div style="font-size:12px;color:var(--g400);margin-top:2px;">자습에 참여하지 않습니다 (신청 취소)</div>
           </div>
         </div>
       </div>
@@ -287,6 +297,7 @@ const CLASS_STUDENTS = {
 
 var selCls = null, selIdx = null, selPeriod = null;
 var appClosed = false;
+var existingApply = {}; // {cls: {idx: {period}}} - 현재 신청 현황
 
 var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
 function syncRosterToClassStudents(roster) {
@@ -311,8 +322,10 @@ window.addEventListener('load', function() {
   fbInit();
   Promise.all([
     fbRef('summerAppPeriod').once('value'),
-    fbRef('studentRoster').once('value')
+    fbRef('studentRoster').once('value'),
+    fbRef('summerApply').once('value')
   ]).then(function(snaps) {
+    existingApply = snaps[2].val() || {};
     var period = snaps[0].val() || {};
     var rosterRaw = snaps[1].val();
     if (rosterRaw) {
@@ -379,11 +392,28 @@ function selectStudent(i) {
   document.getElementById('chk-'+i).textContent = '✅';
   document.getElementById('btn-step1').disabled = false;
   document.getElementById('stu-'+i).scrollIntoView({block:'nearest', behavior:'smooth'});
+  // 기존 신청 현황 표시
+  var cur = (existingApply[selCls] || {})[i];
+  var banner = document.getElementById('current-apply-banner');
+  if (cur && cur.period) {
+    var lbl = cur.period === 'am' ? '🌅 오전만' : '☀️ 오전+오후';
+    banner.textContent = '현재 신청: ' + lbl + ' (변경하려면 아래에서 다시 선택하세요)';
+    banner.style.display = 'block';
+    // 기존 선택값 미리 표시
+    selPeriod = cur.period;
+    ['am','ampm','none'].forEach(function(v){ document.getElementById('opt-'+v).classList.toggle('selected', v === cur.period); });
+    document.getElementById('btn-step2').disabled = false;
+  } else {
+    banner.style.display = 'none';
+    selPeriod = null;
+    ['am','ampm','none'].forEach(function(v){ document.getElementById('opt-'+v).classList.remove('selected'); });
+    document.getElementById('btn-step2').disabled = true;
+  }
 }
 
 function selectPeriod(val) {
   selPeriod = val;
-  ['am','ampm'].forEach(function(v) {
+  ['am','ampm','none'].forEach(function(v) {
     document.getElementById('opt-'+v).classList.toggle('selected', v === val);
   });
   document.getElementById('btn-step2').disabled = false;
@@ -414,11 +444,21 @@ function updateStep(n) {
 
 function buildSummary() {
   var s = CLASS_STUDENTS[selCls][selIdx];
-  var periodLabel = selPeriod === 'am' ? '🌅 오전만' : '☀️ 오전 + 오후';
+  var periodLabel = selPeriod === 'am' ? '🌅 오전만' : selPeriod === 'ampm' ? '☀️ 오전 + 오후' : '❌ 신청하지 않음';
   document.getElementById('summary-box').innerHTML =
     row('학급', selCls+'반') +
     row('학생', s.num+'번 '+s.name) +
     row('자습 시간', periodLabel);
+  var submitBtn = document.querySelector('#screen-3 .btn-primary');
+  if (selPeriod === 'none') {
+    submitBtn.textContent = '❌ 신청 취소하기';
+    submitBtn.style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+    submitBtn.style.boxShadow = '0 4px 12px rgba(220,38,38,.3)';
+  } else {
+    submitBtn.textContent = '📨 신청하기';
+    submitBtn.style.background = '';
+    submitBtn.style.boxShadow = '';
+  }
 }
 function row(label, value) {
   return '<div class="summary-row"><span class="summary-label">'+label+'</span>'
@@ -428,14 +468,33 @@ function row(label, value) {
 function submitApplication() {
   if (appClosed) { showToast('신청 기간이 아닙니다'); return; }
   if (!selCls || selIdx === null || !selPeriod) { showToast('⚠️ 반, 학생, 자습 시간을 선택해주세요'); return; }
-  showLoading('신청 중...');
-  fbRef('summerApply/' + selCls + '/' + selIdx).set({period: selPeriod})
-    .then(function() {
+  var s = CLASS_STUDENTS[selCls][selIdx];
+  var isCancel = selPeriod === 'none';
+  showLoading(isCancel ? '취소 중...' : '신청 중...');
+  var ref = fbRef('summerApply/' + selCls + '/' + selIdx);
+  var op = isCancel ? ref.remove() : ref.set({period: selPeriod});
+  op.then(function() {
       hideLoading();
-      var s = CLASS_STUDENTS[selCls][selIdx];
-      var periodLabel = selPeriod === 'am' ? '오전만' : '오전 + 오후';
-      document.getElementById('done-msg').innerHTML =
-        '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 (<b>'+periodLabel+'</b>) 신청이 완료되었습니다.';
+      // existingApply 로컬 갱신
+      if (!existingApply[selCls]) existingApply[selCls] = {};
+      if (isCancel) delete existingApply[selCls][selIdx];
+      else existingApply[selCls][selIdx] = {period: selPeriod};
+      var doneIcon = document.querySelector('#screen-done .done-icon');
+      var doneTitle = document.querySelector('#screen-done .done-title');
+      if (isCancel) {
+        doneIcon.textContent = '🙅';
+        doneTitle.textContent = '신청 취소 완료';
+        doneTitle.style.color = '#dc2626';
+        document.getElementById('done-msg').innerHTML =
+          '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 신청이 <b>취소</b>되었습니다.';
+      } else {
+        doneIcon.textContent = '🎉';
+        doneTitle.textContent = '신청 완료!';
+        doneTitle.style.color = 'var(--summer)';
+        var periodLabel = selPeriod === 'am' ? '오전만' : '오전 + 오후';
+        document.getElementById('done-msg').innerHTML =
+          '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 (<b>'+periodLabel+'</b>) 신청이 완료되었습니다.';
+      }
       document.querySelectorAll('.screen').forEach(function(sc){ sc.classList.remove('active'); });
       document.getElementById('screen-done').classList.add('active');
     })
@@ -451,7 +510,8 @@ function resetForm() {
   document.getElementById('student-card').style.display = 'none';
   document.getElementById('btn-step1').disabled = true;
   document.getElementById('btn-step2').disabled = true;
-  ['am','ampm'].forEach(function(v){ document.getElementById('opt-'+v).classList.remove('selected'); });
+  ['am','ampm','none'].forEach(function(v){ document.getElementById('opt-'+v).classList.remove('selected'); });
+  document.getElementById('current-apply-banner').style.display = 'none';
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('screen-1').classList.add('active');
   updateStep(1);

@@ -5378,24 +5378,72 @@ function renderSummerApply() {
   var html = '';
   CLASSES.forEach(function(cls) {
     var students = CLASS_STUDENTS[cls] || [];
-    var applied = [];
+    var rows = '';
+    var cnt = 0;
     Object.keys(summerApplyData[cls] || {}).forEach(function(i) {
       var entry = summerApplyData[cls][i];
-      if (entry && students[i]) {
-        var period = entry.period === 'am' ? '오전' : entry.period === 'ampm' ? '오전+오후' : '';
-        applied.push(students[i].name + (period ? ' ('+period+')' : ''));
-      }
+      if (!entry || !students[i]) return;
+      cnt++;
+      var period = entry.period === 'am' ? '🌅 오전' : entry.period === 'ampm' ? '☀️ 오전+오후' : entry.period || '';
+      rows += '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f1f5f9;">'
+        + '<span style="font-size:12px;color:var(--g400);min-width:22px;">'+students[i].num+'</span>'
+        + '<span style="font-size:13px;font-weight:800;flex:1;">'+students[i].name+'</span>'
+        + '<span style="font-size:11px;color:var(--navy);font-weight:700;background:#e0e7ff;padding:2px 7px;border-radius:8px;">'+period+'</span>'
+        + '<button onclick="changeSummerApply(\''+cls+'\',\''+i+'\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-weight:700;">변경</button>'
+        + '<button onclick="cancelSummerApply(\''+cls+'\',\''+i+'\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:700;">취소</button>'
+        + '</div>';
     });
     html += '<div class="class-card" style="cursor:default;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
       + '<div class="class-num" style="font-size:18px;margin:0;">'+cls+'반</div>'
-      + '<div style="font-size:12px;color:var(--navy);font-weight:800;">'+applied.length+'명</div>'
+      + '<div style="font-size:12px;color:var(--navy);font-weight:800;">'+cnt+'명</div>'
       + '</div>'
-      + (applied.length ? '<div style="font-size:12px;color:var(--g600);line-height:1.8;">'+applied.join(', ')+'</div>'
-                        : '<div style="font-size:12px;color:var(--g400);">신청자 없음</div>')
+      + (rows || '<div style="font-size:12px;color:var(--g400);">신청자 없음</div>')
       + '</div>';
   });
   grid.innerHTML = html;
+}
+
+function changeSummerApply(cls, idx) {
+  var cur = (summerApplyData[cls] || {})[idx] || {};
+  var st = (CLASS_STUDENTS[cls] || [])[idx];
+  if (!st) return;
+  var curLabel = cur.period === 'am' ? '오전' : cur.period === 'ampm' ? '오전+오후' : '?';
+  showConfirmModal(
+    cls+'반 '+st.name+' 신청 변경',
+    '현재: <b>'+curLabel+'</b><br><br>변경할 시간을 선택하세요:<br>'
+    + '<div style="display:flex;gap:10px;margin-top:14px;justify-content:center;">'
+    + '<button onclick="doChangeSummerApply(\''+cls+'\',\''+idx+'\',\'am\')" style="padding:10px 18px;border-radius:10px;border:2px solid #1d4ed8;background:#eff6ff;color:#1d4ed8;font-weight:900;cursor:pointer;font-size:14px;">🌅 오전만</button>'
+    + '<button onclick="doChangeSummerApply(\''+cls+'\',\''+idx+'\',\'ampm\')" style="padding:10px 18px;border-radius:10px;border:2px solid #15803d;background:#f0fdf4;color:#15803d;font-weight:900;cursor:pointer;font-size:14px;">☀️ 오전+오후</button>'
+    + '</div>',
+    null
+  );
+}
+
+function doChangeSummerApply(cls, idx, period) {
+  document.getElementById('modal-confirm').style.display = 'none';
+  fbRef('summerApply/' + cls + '/' + idx).set({period: period}).then(function() {
+    if (!summerApplyData[cls]) summerApplyData[cls] = {};
+    summerApplyData[cls][idx] = {period: period};
+    renderSummerApply();
+    showToast('✅ 변경 완료');
+  });
+}
+
+function cancelSummerApply(cls, idx) {
+  var st = (CLASS_STUDENTS[cls] || [])[idx];
+  if (!st) return;
+  showConfirmModal(
+    '신청 취소',
+    cls+'반 <b>'+st.name+'</b> 학생의 신청을 취소합니다.<br><br>그래도 취소하시겠습니까?',
+    function() {
+      fbRef('summerApply/' + cls + '/' + idx).remove().then(function() {
+        if (summerApplyData[cls]) delete summerApplyData[cls][idx];
+        renderSummerApply();
+        showToast('✅ 신청 취소 완료');
+      });
+    }
+  );
 }
 
 // ── Firebase 저장/로드 ──
