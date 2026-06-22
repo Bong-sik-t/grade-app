@@ -5185,7 +5185,11 @@ function renderSummerApply() {
     var students = CLASS_STUDENTS[cls] || [];
     var applied = [];
     Object.keys(summerApplyData[cls] || {}).forEach(function(i) {
-      if (summerApplyData[cls][i] && students[i]) applied.push(students[i].name);
+      var entry = summerApplyData[cls][i];
+      if (entry && students[i]) {
+        var period = entry.period === 'am' ? '오전' : entry.period === 'ampm' ? '오전+오후' : '';
+        applied.push(students[i].name + (period ? ' ('+period+')' : ''));
+      }
     });
     html += '<div class="class-card" style="cursor:default;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'

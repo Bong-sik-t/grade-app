@@ -140,6 +140,22 @@
   .screen { display:none; }
   .screen.active { display:block; }
 
+  .period-option {
+    display:flex; align-items:center; gap:14px;
+    padding:16px; border-radius:12px;
+    border:2px solid var(--g200); cursor:pointer; transition:all .15s;
+  }
+  .period-option:active { transform:scale(.98); }
+  .period-option.selected { border-color:var(--summer); background:#fff7ed; }
+  .period-option .opt-circle {
+    width:22px; height:22px; border-radius:50%;
+    border:2px solid var(--g200); flex-shrink:0; position:relative; transition:all .15s;
+  }
+  .period-option.selected .opt-circle { background:var(--summer); border-color:var(--summer); }
+  .period-option.selected .opt-circle::after {
+    content:''; position:absolute; inset:4px; border-radius:50%; background:#fff;
+  }
+
   .info-banner {
     background:linear-gradient(135deg,#fff7ed,#ffedd5);
     border:1.5px solid #fed7aa; border-radius:12px;
@@ -168,7 +184,12 @@
   <div class="step-divider" id="div1"></div>
   <div class="step">
     <div class="step-circle" id="step2-circle">2</div>
-    <div class="step-label" id="step2-label">확인·제출</div>
+    <div class="step-label" id="step2-label">자습 시간</div>
+  </div>
+  <div class="step-divider" id="div2"></div>
+  <div class="step">
+    <div class="step-circle" id="step3-circle">3</div>
+    <div class="step-label" id="step3-label">확인·제출</div>
   </div>
 </div>
 
@@ -199,8 +220,33 @@
     <button class="btn-primary" id="btn-step1" onclick="goStep(2)" disabled>다음 →</button>
   </div>
 
-  <!-- STEP 2: 확인 및 제출 -->
+  <!-- STEP 2: 자습 시간 선택 -->
   <div id="screen-2" class="screen">
+    <div class="card">
+      <div class="card-title">⏰ 자습 시간 선택</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="period-option" id="opt-am" onclick="selectPeriod('am')">
+          <div class="opt-circle" id="circle-am"></div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:800;">🌅 오전만</div>
+            <div style="font-size:12px;color:var(--g400);margin-top:2px;">오전 자습만 참여합니다</div>
+          </div>
+        </div>
+        <div class="period-option" id="opt-ampm" onclick="selectPeriod('ampm')">
+          <div class="opt-circle" id="circle-ampm"></div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:800;">☀️ 오전 + 오후</div>
+            <div style="font-size:12px;color:var(--g400);margin-top:2px;">오전·오후 전부 참여합니다</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-step2" onclick="goStep(3)" disabled>다음 →</button>
+    <button class="btn-secondary" onclick="goStep(1)">← 이전</button>
+  </div>
+
+  <!-- STEP 3: 확인 및 제출 -->
+  <div id="screen-3" class="screen">
     <div class="card">
       <div class="card-title">✅ 신청 내용 확인</div>
       <div class="summary-box" id="summary-box"></div>
@@ -210,7 +256,7 @@
       </p>
     </div>
     <button class="btn-primary" onclick="submitApplication()">📨 신청하기</button>
-    <button class="btn-secondary" onclick="goStep(1)">← 이전</button>
+    <button class="btn-secondary" onclick="goStep(2)">← 이전</button>
   </div>
 
   <!-- 완료 화면 -->
@@ -239,7 +285,7 @@ const CLASS_STUDENTS = {
   '1-7': [{num:1,name:'강도현'}, {num:2,name:'고부성'}, {num:3,name:'공장우'}, {num:4,name:'곽민준'}, {num:5,name:'구현명'}, {num:6,name:'김규현'}, {num:7,name:'김도형'}, {num:8,name:'김세현'}, {num:9,name:'김에덴'}, {num:10,name:'박서우'}, {num:11,name:'박세진'}, {num:12,name:'손민재'}, {num:13,name:'윤희범'}, {num:14,name:'이동우'}, {num:15,name:'이상인'}, {num:16,name:'이성윤'}, {num:17,name:'이승민'}, {num:18,name:'임태경'}, {num:19,name:'임효준'}, {num:20,name:'정예찬'}, {num:21,name:'정재원'}, {num:22,name:'조성호'}, {num:23,name:'최경민'}, {num:24,name:'최호영'}, {num:25,name:'김상훈'}, {num:26,name:'박찬욱'}],
 };
 
-var selCls = null, selIdx = null;
+var selCls = null, selIdx = null, selPeriod = null;
 var appClosed = false;
 
 var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
@@ -335,35 +381,44 @@ function selectStudent(i) {
   document.getElementById('stu-'+i).scrollIntoView({block:'nearest', behavior:'smooth'});
 }
 
+function selectPeriod(val) {
+  selPeriod = val;
+  ['am','ampm'].forEach(function(v) {
+    document.getElementById('opt-'+v).classList.toggle('selected', v === val);
+  });
+  document.getElementById('btn-step2').disabled = false;
+}
+
 function goStep(n) {
   if (appClosed) return;
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('screen-'+n).classList.add('active');
   updateStep(n);
-  if (n === 2) buildSummary();
+  if (n === 3) buildSummary();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function updateStep(n) {
-  [1,2].forEach(function(i) {
+  [1,2,3].forEach(function(i) {
     var c = document.getElementById('step'+i+'-circle');
     var l = document.getElementById('step'+i+'-label');
     if (i < n)      { c.className='step-circle done'; c.textContent='✓'; }
     else if (i===n) { c.className='step-circle active'; c.textContent=i; }
     else            { c.className='step-circle'; c.textContent=i; }
     l.className = 'step-label'+(i===n?' active':'');
-    if (i < 2) document.getElementById('div'+i).className = 'step-divider'+(i<n?' done':'');
+    if (i < 3) document.getElementById('div'+i).className = 'step-divider'+(i<n?' done':'');
   });
-  var subs = ['','반·학생을 선택하세요','내용을 확인하고 제출하세요'];
+  var subs = ['','반·학생을 선택하세요','자습 시간을 선택하세요','내용을 확인하고 제출하세요'];
   document.getElementById('header-sub').textContent = subs[n] || '';
 }
 
 function buildSummary() {
   var s = CLASS_STUDENTS[selCls][selIdx];
+  var periodLabel = selPeriod === 'am' ? '🌅 오전만' : '☀️ 오전 + 오후';
   document.getElementById('summary-box').innerHTML =
     row('학급', selCls+'반') +
     row('학생', s.num+'번 '+s.name) +
-    row('신청 항목', '🏖️ 여름방학 자습');
+    row('자습 시간', periodLabel);
 }
 function row(label, value) {
   return '<div class="summary-row"><span class="summary-label">'+label+'</span>'
@@ -372,14 +427,15 @@ function row(label, value) {
 
 function submitApplication() {
   if (appClosed) { showToast('신청 기간이 아닙니다'); return; }
-  if (!selCls || selIdx === null) { showToast('⚠️ 반과 학생을 선택해주세요'); return; }
+  if (!selCls || selIdx === null || !selPeriod) { showToast('⚠️ 반, 학생, 자습 시간을 선택해주세요'); return; }
   showLoading('신청 중...');
-  fbRef('summerApply/' + selCls + '/' + selIdx).set(true)
+  fbRef('summerApply/' + selCls + '/' + selIdx).set({period: selPeriod})
     .then(function() {
       hideLoading();
       var s = CLASS_STUDENTS[selCls][selIdx];
+      var periodLabel = selPeriod === 'am' ? '오전만' : '오전 + 오후';
       document.getElementById('done-msg').innerHTML =
-        '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 신청이 완료되었습니다.';
+        '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>여름방학 자습 (<b>'+periodLabel+'</b>) 신청이 완료되었습니다.';
       document.querySelectorAll('.screen').forEach(function(sc){ sc.classList.remove('active'); });
       document.getElementById('screen-done').classList.add('active');
     })
@@ -390,10 +446,12 @@ function submitApplication() {
 }
 
 function resetForm() {
-  selCls = null; selIdx = null;
+  selCls = null; selIdx = null; selPeriod = null;
   document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('selected'); });
   document.getElementById('student-card').style.display = 'none';
   document.getElementById('btn-step1').disabled = true;
+  document.getElementById('btn-step2').disabled = true;
+  ['am','ampm'].forEach(function(v){ document.getElementById('opt-'+v).classList.remove('selected'); });
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('screen-1').classList.add('active');
   updateStep(1);
