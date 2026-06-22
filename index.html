@@ -5134,14 +5134,15 @@ function openQrFullscreen(period) {
 
   modal.style.display = 'flex';
 
-  // 가로 방향 잠금 요청 (지원하는 기기)
-  if (screen.orientation && screen.orientation.lock) {
-    screen.orientation.lock('landscape').catch(function(){});
-  }
-
-  // Fullscreen API
-  if (modal.requestFullscreen) modal.requestFullscreen();
-  else if (modal.webkitRequestFullscreen) modal.webkitRequestFullscreen();
+  // Fullscreen 진입 후 orientation.lock (안드로이드는 fullscreen 상태에서만 lock 허용)
+  var fsEl = modal.requestFullscreen ? modal.requestFullscreen()
+           : modal.webkitRequestFullscreen ? new Promise(function(r){ modal.webkitRequestFullscreen(); r(); })
+           : Promise.resolve();
+  fsEl.then(function() {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+  }).catch(function(){});
 }
 
 function closeQrFullscreen() {
