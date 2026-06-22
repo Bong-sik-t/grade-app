@@ -922,17 +922,24 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   <div id="summer-qr" class="sub-section">
     <p style="font-size:13px;color:var(--g600);margin-bottom:16px;font-weight:700;">📌 태블릿에 QR을 띄워두면 학생이 스캔 후 구글 로그인으로 자동 출석됩니다.</p>
     <div style="display:flex;gap:16px;flex-wrap:wrap;">
-      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;">
+      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;cursor:pointer;" onclick="openQrFullscreen('am')">
         <div style="font-size:14px;font-weight:900;color:#1d4ed8;margin-bottom:16px;">🌅 오전 출석 QR</div>
-        <div id="qr-am" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
-        <div style="font-size:11px;color:var(--g400);">/summer-qr-attend?period=am</div>
+        <div id="qr-am" style="display:flex;justify-content:center;margin-bottom:12px;pointer-events:none;"></div>
+        <div style="font-size:11px;color:var(--g400);">클릭하면 전체화면으로 표시됩니다</div>
       </div>
-      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;">
+      <div style="background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:24px;text-align:center;flex:1;min-width:200px;cursor:pointer;" onclick="openQrFullscreen('pm')">
         <div style="font-size:14px;font-weight:900;color:#15803d;margin-bottom:16px;">☀️ 오후 출석 QR</div>
-        <div id="qr-pm" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
-        <div style="font-size:11px;color:var(--g400);">/summer-qr-attend?period=pm</div>
+        <div id="qr-pm" style="display:flex;justify-content:center;margin-bottom:12px;pointer-events:none;"></div>
+        <div style="font-size:11px;color:var(--g400);">클릭하면 전체화면으로 표시됩니다</div>
       </div>
     </div>
+  </div>
+
+  <!-- QR 전체화면 오버레이 -->
+  <div id="modal-qr-fullscreen" style="display:none;position:fixed;inset:0;background:#1e3a5f;z-index:9999;align-items:center;justify-content:center;flex-direction:column;" onclick="closeQrFullscreen()">
+    <div id="qr-fs-badge" style="font-size:20px;font-weight:900;color:#fff;margin-bottom:20px;letter-spacing:1px;"></div>
+    <div id="qr-fs-canvas" style="background:#fff;padding:20px;border-radius:16px;"></div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:20px;">화면을 터치하면 닫힙니다</div>
   </div>
 </div>
 
@@ -5099,6 +5106,51 @@ function renderSummerQR() {
       correctLevel: QRCode.CorrectLevel.M
     });
   });
+}
+
+function openQrFullscreen(period) {
+  var base = location.origin + '/summer-qr-attend';
+  var url = base + '?period=' + period;
+  var label = period === 'am' ? '🌅 오전 출석 QR' : '☀️ 오후 출석 QR';
+  var color = period === 'am' ? '#1d4ed8' : '#15803d';
+
+  var modal = document.getElementById('modal-qr-fullscreen');
+  var badge = document.getElementById('qr-fs-badge');
+  var canvas = document.getElementById('qr-fs-canvas');
+
+  badge.textContent = label;
+  badge.style.color = color === '#1d4ed8' ? '#93c5fd' : '#86efac';
+  canvas.innerHTML = '';
+
+  // 전체화면 크기에 맞게 QR 크기 결정 (가로 모드 기준 높이 활용)
+  var size = Math.min(window.screen.width, window.screen.height, 480) - 40;
+
+  new QRCode(canvas, {
+    text: url,
+    width: size, height: size,
+    colorDark: '#1e3a5f', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  modal.style.display = 'flex';
+
+  // 가로 방향 잠금 요청 (지원하는 기기)
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(function(){});
+  }
+
+  // Fullscreen API
+  if (modal.requestFullscreen) modal.requestFullscreen();
+  else if (modal.webkitRequestFullscreen) modal.webkitRequestFullscreen();
+}
+
+function closeQrFullscreen() {
+  document.getElementById('modal-qr-fullscreen').style.display = 'none';
+  if (screen.orientation && screen.orientation.unlock) {
+    screen.orientation.unlock();
+  }
+  if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
 }
 
 function copySummerStudentUrl() {
