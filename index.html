@@ -5262,14 +5262,15 @@ var summerAttendDate = null;
 function renderSummerDateBtns() {
   var container = document.getElementById('summer-date-btns');
   if (!container) return;
-  var today = new Date().toISOString().slice(0,10);
+  var now = new Date();
+  var today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   var dates = SUMMER_DATES.slice();
   // 오늘 날짜가 여름방학 기간 외이면 맨 앞에 추가
   var inList = dates.some(function(d){ return d.date === today; });
   if (!inList) {
-    var m = today.slice(5,7).replace(/^0/,''), day = today.slice(8,10).replace(/^0/,'');
+    var m = String(now.getMonth()+1), day = String(now.getDate());
     var days = ['일','월','화','수','목','금','토'];
-    var w = days[new Date(today).getDay()];
+    var w = days[now.getDay()];
     dates = [{date:today, label:m+'/'+day+'('+w+') 오늘', today:true}].concat(dates);
   }
   container.innerHTML = dates.map(function(d) {
