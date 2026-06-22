@@ -93,7 +93,8 @@ var today = new Date().toISOString().slice(0, 10);
 // 여름방학 자습 기간 체크
 var SUMMER_DATES = ['2026-07-27','2026-07-28','2026-07-29','2026-07-30','2026-07-31',
                     '2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07'];
-var isValidDate = SUMMER_DATES.indexOf(today) !== -1;
+var isValidDate = true; // 테스트용 - 날짜 제한 임시 해제 (운영 시 아래로 교체)
+// var isValidDate = SUMMER_DATES.indexOf(today) !== -1;
 
 function render(html) {
   document.getElementById('card').innerHTML = html;
