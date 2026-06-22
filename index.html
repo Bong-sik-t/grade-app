@@ -895,9 +895,12 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 
   <!-- 학생 출석 현황 -->
   <div id="summer-attend" class="sub-section">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-      <div style="font-size:14px;font-weight:800;color:var(--navy);">📅 날짜 선택</div>
-      <input type="date" id="summer-attend-date" style="padding:6px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;" onchange="renderSummerAttend()">
+    <div style="margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:10px;">📅 날짜 선택</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="summer-date-btns"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="summer-attend-actions" style="display:none;">
+      <span id="summer-selected-date-label" style="font-size:14px;font-weight:800;color:var(--navy);align-self:center;"></span>
       <div style="margin-left:auto;display:flex;gap:8px;">
         <button class="btn btn-sm" style="background:#f0fdf4;border:1.5px solid #86efac;color:#16a34a;font-weight:800;" onclick="summerAttendAllAm()">✅ 오전 전원</button>
         <button class="btn btn-sm" style="background:#eff6ff;border:1.5px solid #93c5fd;color:#1d4ed8;font-weight:800;" onclick="summerAttendAllPm()">✅ 오후 전원</button>
@@ -5018,7 +5021,7 @@ function switchSummerTab(id, el) {
   document.getElementById(id).classList.add('active');
   el.classList.add('active');
   if (id === 'summer-supervisor') renderSummerSv();
-  if (id === 'summer-attend')     renderSummerAttend();
+  if (id === 'summer-attend')     { renderSummerDateBtns(); renderSummerAttend(); }
   if (id === 'summer-apply')      renderSummerApply();
 }
 
@@ -5093,20 +5096,54 @@ function deleteSummerSv(idx) {
 }
 
 // ── 학생 출석 ──
+var SUMMER_DATES = [
+  {date:'2026-07-27', label:'7/27(월)'},
+  {date:'2026-07-28', label:'7/28(화)'},
+  {date:'2026-07-29', label:'7/29(수)'},
+  {date:'2026-07-30', label:'7/30(목)'},
+  {date:'2026-07-31', label:'7/31(금)'},
+  {date:'2026-08-03', label:'8/3(월)'},
+  {date:'2026-08-04', label:'8/4(화)'},
+  {date:'2026-08-05', label:'8/5(수)'},
+  {date:'2026-08-06', label:'8/6(목)'},
+  {date:'2026-08-07', label:'8/7(금)'},
+];
+var summerAttendDate = null;
+
+function renderSummerDateBtns() {
+  var container = document.getElementById('summer-date-btns');
+  if (!container) return;
+  container.innerHTML = SUMMER_DATES.map(function(d) {
+    var active = d.date === summerAttendDate;
+    return '<button onclick="selectSummerDate(\''+d.date+'\',\''+d.label+'\')" style="'
+      + 'padding:7px 12px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;border:2px solid '
+      + (active ? 'var(--navy);background:var(--navy);color:#fff;' : '#e2e8f0;background:#fff;color:var(--g600);')
+      + '">'+d.label+'</button>';
+  }).join('');
+}
+
+function selectSummerDate(dateStr, label) {
+  summerAttendDate = dateStr;
+  renderSummerDateBtns();
+  document.getElementById('summer-selected-date-label').textContent = label;
+  document.getElementById('summer-attend-actions').style.display = 'flex';
+  renderSummerAttend();
+}
+
 function renderSummerAttend() {
-  var dateEl = document.getElementById('summer-attend-date');
-  if (!dateEl) return;
-  if (!dateEl.value) { dateEl.value = new Date().toISOString().slice(0,10); }
-  var dateStr = dateEl.value;
-  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
+  var dateStr = summerAttendDate;
   var grid = document.getElementById('summer-attend-grid');
   if (!grid) return;
+  if (!dateStr) { grid.innerHTML = '<p style="color:var(--g400);font-size:13px;">날짜를 선택해주세요.</p>'; return; }
+  if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
   var html = '';
   CLASSES.forEach(function(cls) {
     if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
-    var students = CLASS_STUDENTS[cls] || [];
+    // 신청한 학생만
+    var applied = Object.keys(summerApplyData[cls] || {});
+    if (!applied.length) return;
     var amCnt = 0, pmCnt = 0;
-    students.forEach(function(_, i) {
+    applied.forEach(function(i) {
       var a = summerAttendData[dateStr][cls][i] || {};
       if (a.am) amCnt++;
       if (a.pm) pmCnt++;
@@ -5117,21 +5154,29 @@ function renderSummerAttend() {
       + '<div style="font-size:11px;color:var(--g600);">오전 '+amCnt+'명 / 오후 '+pmCnt+'명</div>'
       + '</div>'
       + '<div style="display:flex;flex-direction:column;gap:4px;">';
-    students.forEach(function(st, i) {
+    applied.forEach(function(i) {
+      var st = (CLASS_STUDENTS[cls] || [])[i];
+      if (!st) return;
       var a = summerAttendData[dateStr][cls][i] || {};
+      var appliedPeriod = (summerApplyData[cls][i] || {}).period;
+      var showPm = (appliedPeriod === 'ampm');
       html += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;">'
         + '<span style="font-size:12px;color:var(--g400);min-width:20px;">'+st.num+'</span>'
         + '<span style="font-size:13px;font-weight:700;flex:1;">'+st.name+'</span>'
+        + '<span style="font-size:10px;color:var(--g400);margin-right:4px;">'+(showPm?'오전+오후':'오전')+'</span>'
         + '<label style="display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;cursor:pointer;color:#1d4ed8;">'
         + '<input type="checkbox" '+(a.am?'checked':'')
         + ' onchange="toggleSummerAttend(\''+dateStr+'\',\''+cls+'\','+i+',\'am\',this.checked)" style="accent-color:#1d4ed8;width:14px;height:14px;"> 오전</label>'
-        + '<label style="display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;cursor:pointer;color:#15803d;">'
-        + '<input type="checkbox" '+(a.pm?'checked':'')
-        + ' onchange="toggleSummerAttend(\''+dateStr+'\',\''+cls+'\','+i+',\'pm\',this.checked)" style="accent-color:#15803d;width:14px;height:14px;"> 오후</label>'
+        + (showPm
+          ? '<label style="display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;cursor:pointer;color:#15803d;">'
+            + '<input type="checkbox" '+(a.pm?'checked':'')
+            + ' onchange="toggleSummerAttend(\''+dateStr+'\',\''+cls+'\','+i+',\'pm\',this.checked)" style="accent-color:#15803d;width:14px;height:14px;"> 오후</label>'
+          : '')
         + '</div>';
     });
     html += '</div></div>';
   });
+  if (!html) html = '<p style="color:var(--g400);font-size:13px;">신청한 학생이 없습니다.</p>';
   grid.innerHTML = html;
 }
 
@@ -5145,13 +5190,13 @@ function toggleSummerAttend(dateStr, cls, idx, period, val) {
 }
 
 function summerAttendAllAm() {
-  var dateStr = document.getElementById('summer-attend-date').value;
+  var dateStr = summerAttendDate;
   if (!dateStr) return;
   if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
   var updates = {};
   CLASSES.forEach(function(cls) {
     if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
-    (CLASS_STUDENTS[cls]||[]).forEach(function(_, i) {
+    Object.keys(summerApplyData[cls] || {}).forEach(function(i) {
       if (!summerAttendData[dateStr][cls][i]) summerAttendData[dateStr][cls][i] = {};
       summerAttendData[dateStr][cls][i].am = true;
       updates['summerAttend/'+dateStr+'/'+cls+'/'+i+'/am'] = true;
@@ -5161,13 +5206,14 @@ function summerAttendAllAm() {
 }
 
 function summerAttendAllPm() {
-  var dateStr = document.getElementById('summer-attend-date').value;
+  var dateStr = summerAttendDate;
   if (!dateStr) return;
   if (!summerAttendData[dateStr]) summerAttendData[dateStr] = {};
   var updates = {};
   CLASSES.forEach(function(cls) {
     if (!summerAttendData[dateStr][cls]) summerAttendData[dateStr][cls] = {};
-    (CLASS_STUDENTS[cls]||[]).forEach(function(_, i) {
+    Object.keys(summerApplyData[cls] || {}).forEach(function(i) {
+      if ((summerApplyData[cls][i] || {}).period !== 'ampm') return;
       if (!summerAttendData[dateStr][cls][i]) summerAttendData[dateStr][cls][i] = {};
       summerAttendData[dateStr][cls][i].pm = true;
       updates['summerAttend/'+dateStr+'/'+cls+'/'+i+'/pm'] = true;
