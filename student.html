@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>1학년 야자·석식 신청</title>
+<title>1학년 야자 신청</title>
 <!-- PWA -->
 <link rel="manifest" href="/student-manifest.json">
 <meta name="theme-color" content="#1e3a5f">
@@ -110,7 +110,7 @@
   }
   .month-btn.selected { background:var(--navy); border-color:var(--navy); color:#fff; }
 
-  /* 야자/석식 선택 */
+  /* 야자 선택 */
   .apply-group { margin-bottom:20px; }
   .apply-group-title {
     font-size:12px; font-weight:800; color:var(--g400);
@@ -141,28 +141,13 @@
   .opt-desc  { font-size:11px; color:var(--g400); margin-top:2px; }
   .opt-icon  { font-size:22px; }
 
-  /* 토글 스위치 */
-  .toggle-row {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 0;
-    border-bottom:1px solid var(--g200);
+  /* 기숙사 안내 배너 */
+  .dorm-banner {
+    background:#eff6ff; border:2px solid var(--navy);
+    border-radius:12px; padding:14px 16px; margin-bottom:8px;
   }
-  .toggle-row:last-child { border-bottom:none; }
-  .toggle-info .toggle-title { font-size:14px; font-weight:800; }
-  .toggle-info .toggle-desc  { font-size:11px; color:var(--g400); margin-top:2px; }
-  .toggle-switch {
-    position:relative; width:48px; height:26px;
-    background:var(--g200); border-radius:13px;
-    cursor:pointer; transition:background .2s; flex-shrink:0;
-  }
-  .toggle-switch.on { background:var(--navy); }
-  .toggle-knob {
-    position:absolute; top:3px; left:3px;
-    width:20px; height:20px; border-radius:50%;
-    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2);
-    transition:transform .2s;
-  }
-  .toggle-switch.on .toggle-knob { transform:translateX(22px); }
+  .dorm-banner .dorm-title { font-size:14px; font-weight:900; color:var(--navy); margin-bottom:4px; }
+  .dorm-banner .dorm-desc  { font-size:12px; color:var(--g600); line-height:1.6; }
 
   /* 요약 카드 */
   .summary-box {
@@ -245,7 +230,7 @@
 </div>
 
 <div class="header">
-  <h1>🏫 경남고 1학년 야자·석식 신청</h1>
+  <h1>🏫 경남고 1학년 야자 신청</h1>
   <p id="header-sub">신청 정보를 입력해주세요</p>
 </div>
 
@@ -309,11 +294,11 @@
     <button class="btn-secondary" onclick="goStep(1)">← 이전</button>
   </div>
 
-  <!-- STEP 3: 요일별 야자·석식 선택 -->
+  <!-- STEP 3: 요일별 야자 선택 -->
   <div id="screen-3" class="screen">
     <div class="card">
-      <div class="card-title">📅 요일별 야자·석식 신청</div>
-      <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">요일별로 야자 수준과 석식 여부를 선택하세요.</p>
+      <div class="card-title">📅 요일별 야자 신청</div>
+      <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;" id="dow-desc">요일별로 야자 수준을 선택하세요.</p>
       <div id="dow-cards"></div>
     </div>
     <button class="btn-primary" id="btn-step3" onclick="goStep(4)">다음 →</button>
@@ -374,9 +359,16 @@ var selCls    = null;
 var selIdx    = null;
 var selMonth  = null;
 var curStep   = 1;
+var selIsDorm = false;  // 선택한 학생이 기숙사생인지
 // 요일별 신청 상태
 var selDow = {};
-DOW_KEYS.forEach(function(k){ selDow[k] = {yaja: 'none', seoksi: false}; });
+DOW_KEYS.forEach(function(k){ selDow[k] = {yaja: 'none'}; });
+
+// 기숙사 학생 명단: {cls: [num, ...]}
+var dormStudents = {};
+function isDormStudent(cls, num) {
+  return (dormStudents[cls] || []).indexOf(Number(num)) !== -1;
+}
 
 // 학생 명단을 studentRoster 기준으로 CLASS_STUDENTS 동기화
 var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
@@ -408,10 +400,17 @@ window.addEventListener('load', function() {
   // Firebase에서 appPeriod + studentRoster만 로드
   Promise.all([
     fbRef('appPeriod').once('value'),
-    fbRef('studentRoster').once('value')
+    fbRef('studentRoster').once('value'),
+    fbRef('dormStudents').once('value')
   ]).then(function(snaps) {
     var period  = snaps[0].val() || {};
     var rosterRaw = snaps[1].val();
+    var dormRaw = snaps[2].val();
+    if (dormRaw) {
+      Object.keys(dormRaw).forEach(function(cls) {
+        dormStudents[cls] = Array.isArray(dormRaw[cls]) ? dormRaw[cls].map(Number) : [];
+      });
+    }
 
     // studentRoster 동기화
     var roster = [];
@@ -497,6 +496,7 @@ function selectCls(cls) {
 
 function selectStudent(i) {
   selIdx = i;
+  selIsDorm = isDormStudent(selCls, CLASS_STUDENTS[selCls][i].num);
   document.querySelectorAll('.student-item').forEach(function(el){ el.classList.remove('selected'); });
   document.querySelectorAll('.student-check').forEach(function(el){ el.textContent = ''; });
   var item = document.getElementById('stu-'+i);
@@ -523,7 +523,21 @@ function buildDowCards() {
   ];
   var container = document.getElementById('dow-cards');
   container.innerHTML = '';
+  var descEl = document.getElementById('dow-desc');
 
+  if (selIsDorm) {
+    descEl.textContent = '기숙사 학생은 8교시가 자동으로 적용됩니다.';
+    var banner = document.createElement('div');
+    banner.className = 'dorm-banner';
+    banner.innerHTML =
+      '<div class="dorm-title">🏠 기숙사 학생</div>' +
+      '<div class="dorm-desc">월~금 8교시가 자동으로 신청됩니다.<br>야자 1·2교시는 기숙사에서 자습하므로 별도로 신청하지 않아도 됩니다.</div>';
+    container.appendChild(banner);
+    DOW_KEYS.forEach(function(k){ selDow[k].yaja = 'p8'; });
+    return;
+  }
+
+  descEl.textContent = '요일별로 야자 수준을 선택하세요.';
   DOW_KEYS.forEach(function(k) {
     var state = selDow[k];
     var wrap = document.createElement('div');
@@ -537,7 +551,7 @@ function buildDowCards() {
 
     // 야자 버튼들
     var btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;';
+    btnRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
     yajaCols.forEach(function(opt) {
       var on = state.yaja === opt.val;
       var btn = document.createElement('button');
@@ -548,40 +562,12 @@ function buildDowCards() {
     });
     wrap.appendChild(btnRow);
 
-    // 석식 토글
-    var seoksiRow = document.createElement('div');
-    var canSeoksi = state.yaja !== 'none';
-    seoksiRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#f8fafc;border-radius:8px;opacity:'+(canSeoksi?1:0.4)+';';
-    var seoksiLabel = document.createElement('span');
-    seoksiLabel.style.cssText = 'font-size:13px;font-weight:700;';
-    seoksiLabel.textContent = '🍚 석식 신청';
-    var toggle = document.createElement('div');
-    toggle.className = 'toggle-switch' + (state.seoksi ? ' on' : '');
-    toggle.style.cursor = canSeoksi ? 'pointer' : 'not-allowed';
-    toggle.innerHTML = '<div class="toggle-knob"></div>';
-    toggle.onclick = (function(dow){ return function(){ setDowSeoksi(dow); }; })(k);
-    seoksiRow.appendChild(seoksiLabel);
-    seoksiRow.appendChild(toggle);
-    wrap.appendChild(seoksiRow);
-
     container.appendChild(wrap);
   });
 }
 
 function setDowYaja(dow, val) {
   selDow[dow].yaja = val;
-  selDow[dow].seoksi = (val !== 'none');
-  // 하나라도 야자 신청이 있으면 월~금 전체 석식 자동 신청
-  var anyYaja = DOW_KEYS.some(function(k) { return selDow[k].yaja !== 'none'; });
-  DOW_KEYS.forEach(function(k) {
-    if (anyYaja) selDow[k].seoksi = true;
-    else selDow[k].seoksi = false;
-  });
-  buildDowCards();
-}
-function setDowSeoksi(dow) {
-  if (selDow[dow].yaja === 'none') { showToast('⚠️ 야자를 먼저 선택해주세요'); return; }
-  selDow[dow].seoksi = !selDow[dow].seoksi;
   buildDowCards();
 }
 
@@ -612,19 +598,23 @@ function updateStep(n) {
     }
   });
   // 헤더 부제목
-  var subs = ['','반·학생을 선택하세요','신청 월을 선택하세요','야자·석식 항목을 선택하세요','내용을 확인하고 제출하세요'];
+  var subs = ['','반·학생을 선택하세요','신청 월을 선택하세요','야자 항목을 선택하세요','내용을 확인하고 제출하세요'];
   document.getElementById('header-sub').textContent = subs[n] || '';
 }
 
 function buildSummary() {
   var s = CLASS_STUDENTS[selCls][selIdx];
   var yajaLabels = {none:'—', p8:'8교시', y1:'야자1교시', y2:'야자2교시'};
-  var dowRows = DOW_KEYS.map(function(k) {
-    var st = selDow[k];
-    var yajaStr = yajaLabels[st.yaja] || '—';
-    var seoksiStr = st.seoksi ? '🍚 석식' : '';
-    return row(DOW_FULL[k], yajaStr + (seoksiStr?' + '+seoksiStr:''), st.yaja!=='none'?'green':'');
-  }).join('');
+  var dowRows;
+  if (selIsDorm) {
+    dowRows = row('신청 내용', '전 요일 8교시 자동 적용(기숙사)', 'green');
+  } else {
+    dowRows = DOW_KEYS.map(function(k) {
+      var st = selDow[k];
+      var yajaStr = yajaLabels[st.yaja] || '—';
+      return row(DOW_FULL[k], yajaStr, st.yaja!=='none'?'green':'');
+    }).join('');
+  }
   document.getElementById('summary-box').innerHTML =
     row('학급', selCls+'반') +
     row('학생', s.num+'번 '+s.name) +
@@ -645,7 +635,7 @@ function submitApplication() {
   showLoading('신청 중...');
 
   // 요일별 신청 데이터 구성 (Firebase 경로: yajaData/{month}/{cls}/{idx}/{dow})
-  var yajaEntry = {}, seoksiEntry = {};
+  var yajaEntry = {};
   DOW_KEYS.forEach(function(k) {
     var st = selDow[k];
     yajaEntry[k] = {
@@ -653,23 +643,23 @@ function submitApplication() {
       y1: (st.yaja==='y1'||st.yaja==='y2'),
       y2: (st.yaja==='y2')
     };
-    seoksiEntry[k] = !!st.seoksi;
   });
 
-  // Firebase 경로별 업데이트 (한 번에 원자적으로 저장)
+  // Firebase 경로별 업데이트
   var updates = {};
-  updates['yajaData/'   + selMonth + '/' + selCls + '/' + selIdx] = yajaEntry;
-  updates['seoksiData/' + selMonth + '/' + selCls + '/' + selIdx] = seoksiEntry;
+  updates['yajaData/' + selMonth + '/' + selCls + '/' + selIdx] = yajaEntry;
 
   fbRef('').update(updates)
     .then(function() {
       hideLoading();
       var s = CLASS_STUDENTS[selCls][selIdx];
-      var doneDetails = DOW_KEYS.map(function(k){
-        var st = selDow[k];
-        var lb = {none:'—',p8:'8교시',y1:'야자1',y2:'야자2'}[st.yaja];
-        return DOW_FULL[k]+': <b>'+lb+'</b>'+(st.seoksi?' + 석식':'');
-      }).join('<br>');
+      var doneDetails = selIsDorm
+        ? '전 요일 <b>8교시</b> 자동 적용 (기숙사)'
+        : DOW_KEYS.map(function(k){
+            var st = selDow[k];
+            var lb = {none:'—',p8:'8교시',y1:'야자1',y2:'야자2'}[st.yaja];
+            return DOW_FULL[k]+': <b>'+lb+'</b>';
+          }).join('<br>');
       document.getElementById('done-msg').innerHTML =
         '<b>'+selCls+'반 '+s.num+'번 '+s.name+'</b> 학생<br>'+
         selMonth+'월 신청이 완료되었습니다.<br><br>'+doneDetails;
@@ -683,8 +673,8 @@ function submitApplication() {
 }
 
 function resetForm() {
-  selCls=null; selIdx=null;
-  DOW_KEYS.forEach(function(k){ selDow[k]={yaja:'none',seoksi:false}; });
+  selCls=null; selIdx=null; selIsDorm=false;
+  DOW_KEYS.forEach(function(k){ selDow[k]={yaja:'none'}; });
   selMonth = new Date().getMonth()+1;
   document.querySelectorAll('.cls-btn').forEach(function(b){ b.classList.remove('selected'); });
   document.getElementById('student-card').style.display='none';

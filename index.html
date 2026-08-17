@@ -229,9 +229,6 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
 .teacher-list-input{width:100%;padding:12px;border:2px solid var(--g200);border-radius:8px;font-size:13px;font-family:'Nanum Gothic',sans-serif;min-height:90px;resize:vertical;color:var(--navy);}
 .teacher-list-input:focus{outline:none;border-color:var(--navy);}
 
-/* ─── SEOKSI ─── */
-.seoksi-class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;}
-
 /* ─── MODAL ─── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
@@ -496,7 +493,6 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     <!-- 여름방학 자습 탭 숨김 처리 (2026-07-24) — 기능·데이터는 그대로 두고 메뉴에서만 제외. 필요 시 아래 주석을 해제하면 복원됨.
     <div class="nav-tab" onclick="switchTab('summer',this)">🏖️ 여름방학 자습</div>
     -->
-    <div class="nav-tab" onclick="switchTab('seoksi',this)">🍚 석식 신청</div>
     <div class="nav-tab" onclick="switchTab('roster',this)">👥 학생 관리</div>
     <div class="nav-tab" onclick="switchTab('jumper',this)">🧥 점퍼 사이즈</div>
     <div class="nav-tab" onclick="switchTab('volunteer',this)">🤝 봉사활동</div>
@@ -537,6 +533,8 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   <div class="section-header">
     <div class="section-title">야간 자율학습</div>
     <div style="display:flex;gap:8px;" class="no-print">
+      <a href="student.html" target="_blank" class="btn btn-outline btn-sm">📝 학생 신청 페이지</a>
+      <button class="btn btn-outline btn-sm" onclick="copyYajaStudentUrl()">🔗 URL 복사</button>
       <button class="btn btn-outline btn-sm" onclick="openYajaQrModal()">📱 QR 코드</button>
     </div>
   </div>
@@ -704,28 +702,6 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
       </table>
     </div>
   </div>
-</div>
-
-<!-- ══ 석식 신청 ══ -->
-<div id="tab-seoksi" class="section">
-  <div class="section-header">
-    <div class="section-title">석식 신청</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-      <button class="btn btn-outline btn-sm" onclick="printSeoksiDetail(null)">🖨 전체 인쇄</button>
-      <button class="btn btn-green btn-sm" onclick="openSeoksiPrintModal()">🖨 학급별 인쇄</button>
-      <button class="btn btn-outline btn-sm" onclick="exportSeoksiCsv()">⬇ CSV 다운로드</button>
-    </div>
-  </div>
-  <div class="month-nav no-print">
-    <button class="month-nav-btn" onclick="changeSeoksiMonth(-1)">‹</button>
-    <span class="month-nav-label" id="seoksi-month-label"></span>
-    <button class="month-nav-btn" onclick="changeSeoksiMonth(1)">›</button>
-    <div class="month-quick" id="seoksi-month-quick"></div>
-    <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="copyPrevMonthSeoksi()" title="이전 달 석식 신청 내용을 이번 달로 복사합니다">📋 이전 달 복사</button>
-  </div>
-  <div class="stats-row" id="seoksi-stats-row"></div>
-  <p style="font-size:13px;color:var(--g600);margin-bottom:16px;font-weight:700;" class="no-print">📌 반 카드를 클릭하면 학생별로 석식 신청을 입력할 수 있습니다.</p>
-  <div class="seoksi-class-grid" id="seoksi-class-grid"></div>
 </div>
 
 <!-- ══ 야자 감독표 ══ -->
@@ -1288,6 +1264,12 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
       <label>비고</label>
       <input type="text" id="change-stu-note" placeholder="예: 2026-04-01 전출">
     </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;">
+        <input type="checkbox" id="change-stu-dorm" style="width:16px;height:16px;">
+        🏠 기숙사 학생
+      </label>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-change-status')">취소</button>
       <button class="btn btn-danger" id="change-delete-btn" onclick="confirmDeleteStudent()" style="background:#fee2e2;color:#c0392b;border:none;">🗑 삭제</button>
@@ -1366,28 +1348,6 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
   </div>
 </div>
 
-<!-- 석식 모달 -->
-<div class="student-modal-overlay" id="modal-seoksi">
-  <div class="student-modal">
-    <div class="student-modal-header">
-      <div class="student-modal-title" id="seoksi-modal-title"></div>
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-seoksi');renderSeoksiGrid();">✕ 닫기</button>
-    </div>
-    <div class="student-modal-body">
-      <div style="overflow-x:auto;">
-        <table class="student-table">
-          <thead><tr><th style="text-align:left">학생</th><th>석식 신청</th></tr></thead>
-          <tbody id="seoksi-student-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="student-footer">
-      <div id="seoksi-student-summary"></div>
-      <button class="btn btn-primary" onclick="closeModal('modal-seoksi');renderSeoksiGrid();">확인</button>
-    </div>
-  </div>
-</div>
-
 <div class="toast" id="toast"> id="toast"></div>
 
 <script>
@@ -1462,7 +1422,7 @@ let scheduleData = [
   {date:'2026-12-30',title:'겨울방학식',type:'school',target:'전교생'},
 ];
 
-let yajaData={}, seoksiData={}, svData={};
+let yajaData={}, svData={};
 var svTeachersByMonth = {};        // 월~목 순번 (3월은 월~금 통합)
 var svFridayTeachersByMonth = {};  // 금요일 순번 (4월부터 별도)
 
@@ -1497,18 +1457,12 @@ function attendDateToDow(dateStr) {
 }
 
 MONTHS.forEach(m=>{
-  yajaData[m]={};seoksiData[m]={};svData[m]={};
+  yajaData[m]={};svData[m]={};
   CLASSES.forEach(c=>{
     // 요일별 신청: yajaData[m][c][studentIdx][dow] = {p8,y1,y2}
     yajaData[m][c] = CLASS_STUDENTS[c].map(()=>{
       var d={};
       DOW_KEYS.forEach(function(k){ d[k]={p8:false,y1:false,y2:false}; });
-      return d;
-    });
-    // 석식도 요일별: seoksiData[m][c][studentIdx][dow] = bool
-    seoksiData[m][c] = CLASS_STUDENTS[c].map(()=>{
-      var d={};
-      DOW_KEYS.forEach(function(k){ d[k]=false; });
       return d;
     });
   });
@@ -1618,10 +1572,9 @@ var _initMonth = Math.max(3, Math.min(12, _nowM));
 var _todayDowIdx = new Date().getDay(); // 0=일,1=월,...6=토
 var _initDow = ['mon','tue','wed','thu','fri'][_todayDowIdx - 1] || 'mon'; // 주말엔 'mon'
 
-let schMonth=_initMonth,yajaMonth=_initMonth,seoksiMonth=_initMonth,svMonth=_initMonth;
+let schMonth=_initMonth,yajaMonth=_initMonth,svMonth=_initMonth;
 let svCountMode='monthly', svCountMonth=_initMonth;
 let currentYajaClass=null;
-var currentSeoksiDow = _initDow;
 let rateSort='cls', ratePeriod='all';
 let svSort='name';
 
@@ -1638,9 +1591,6 @@ function _addStudentToClass(cls, num, name) {
     var newYaja = {};
     DOW_KEYS.forEach(function(k){ newYaja[k] = {p8:false, y1:false, y2:false}; });
     yajaData[m][cls].splice(idx, 0, newYaja);
-    var newSeoksi = {};
-    DOW_KEYS.forEach(function(k){ newSeoksi[k] = false; });
-    seoksiData[m][cls].splice(idx, 0, newSeoksi);
     Object.keys(attendCheck[m]).forEach(function(ds) {
       if (attendCheck[m][ds][cls]) {
         attendCheck[m][ds][cls].p8.splice(idx, 0, false);
@@ -1658,7 +1608,6 @@ function _removeStudentFromClass(cls, num, name) {
   CLASS_STUDENTS[cls].splice(idx, 1);
   MONTHS.forEach(function(m) {
     if (yajaData[m][cls]) yajaData[m][cls].splice(idx, 1);
-    if (seoksiData[m][cls]) seoksiData[m][cls].splice(idx, 1);
     Object.keys(attendCheck[m]).forEach(function(ds) {
       if (attendCheck[m][ds][cls]) {
         attendCheck[m][ds][cls].p8.splice(idx, 1);
@@ -1707,7 +1656,7 @@ function initRoster() {
   });
 }
 
-// 현재 재학 중인 학생만 반환 (야자·석식 신청에 사용)
+// 현재 재학 중인 학생만 반환 (야자 신청에 사용)
 function getActiveStudents(cls) {
   return studentRoster.filter(function(s) {
     return s.cls === cls && STATUS_ACTIVE_SET.has(s.status);
@@ -1814,7 +1763,6 @@ function confirmAddStudent() {
   closeModal('modal-add-student');
   renderRosterTable();
   renderYajaGrid();
-  renderSeoksiGrid();
   showToast('✅ ' + cls + '반 ' + name + ' 학생 추가 완료');
 }
 
@@ -1830,7 +1778,15 @@ function openChangeStatus(id) {
   document.getElementById('change-stu-cls').value = '';
   document.getElementById('change-stu-num').value = '';
   document.getElementById('change-stu-note').value = s.note || '';
+  document.getElementById('change-stu-dorm').checked = isDormStudent(s.cls, s.num);
   openModal('modal-change-status');
+}
+
+function setDormStudent(cls, num, isDorm) {
+  if (!dormStudents[cls]) dormStudents[cls] = [];
+  var idx = dormStudents[cls].indexOf(Number(num));
+  if (isDorm && idx === -1) dormStudents[cls].push(Number(num));
+  if (!isDorm && idx !== -1) dormStudents[cls].splice(idx, 1);
 }
 
 function confirmChangeStatus() {
@@ -1842,8 +1798,11 @@ function confirmChangeStatus() {
   const newNumRaw = document.getElementById('change-stu-num').value;
   const newNum    = newNumRaw ? parseInt(newNumRaw) : null;
   const newNote   = document.getElementById('change-stu-note').value.trim();
+  const newDorm   = document.getElementById('change-stu-dorm').checked;
 
   const oldStatus = s.status;
+  const oldCls = s.cls;
+  const oldNum = s.num;
   s.status = newStatus;
   s.note   = newNote;
 
@@ -1857,25 +1816,28 @@ function confirmChangeStatus() {
     _addStudentToClass(s.cls, s.num, s.name);
   }
 
+  // 기숙사 여부 반영 (반/번호가 바뀐 경우 기존 위치에서 제거 후 새 위치에 반영)
+  setDormStudent(oldCls, oldNum, false);
+  setDormStudent(s.cls, s.num, newDorm);
+
   closeModal('modal-change-status');
   renderRosterTable();
   renderYajaGrid();
-  renderSeoksiGrid();
   showToast('✅ ' + s.name + ' → ' + STATUS_LABEL[newStatus] + ' 상태 변경 완료');
 }
 
 function confirmDeleteStudent() {
   const s = studentRoster.find(function(x){ return x.id===editStudentId; });
   if (!s) return;
-  if (!confirm(s.name + ' 학생을 명단에서 완전히 삭제하시겠습니까?\n(야자·석식 신청 데이터도 함께 삭제됩니다)')) return;
+  if (!confirm(s.name + ' 학생을 명단에서 완전히 삭제하시겠습니까?\n(야자 신청 데이터도 함께 삭제됩니다)')) return;
 
   studentRoster = studentRoster.filter(function(x){ return x.id!==editStudentId; });
   _removeStudentFromClass(s.cls, s.num, s.name);
+  setDormStudent(s.cls, s.num, false);
 
   closeModal('modal-change-status');
   renderRosterTable();
   renderYajaGrid();
-  renderSeoksiGrid();
   showToast('🗑 ' + s.name + ' 학생 삭제 완료');
 }
 
@@ -1888,7 +1850,7 @@ function init(){
   const days=['일','월','화','수','목','금','토'];
   document.getElementById('headerDate').textContent=`${now.getFullYear()}. ${now.getMonth()+1}. ${now.getDate()}. (${days[now.getDay()]})`;
   initRoster();initJumper();initVolunteer();
-  buildAllNavs();renderSchCal();renderYajaGrid();renderSeoksiGrid();renderSvCal();
+  buildAllNavs();renderSchCal();renderYajaGrid();renderSvCal();
 }
 
 // ══════════════════════════════════════════
@@ -1923,7 +1885,7 @@ function switchSubTab(id,el){
 // ══════════════════════════════════════════
 function buildAllNavs(){
   buildNav('sch-month',schMonth);buildNav('yaja-month',yajaMonth);
-  buildNav('seoksi-month',seoksiMonth);buildNav('sv-month',svMonth);
+  buildNav('sv-month',svMonth);
 }
 function buildNav(prefix,active){
   document.getElementById(prefix+'-label').textContent=active+'월';
@@ -1939,7 +1901,6 @@ function setMonth(prefix,m){
     if(document.getElementById('yaja-rate').classList.contains('active'))renderRateTable();
     if(document.getElementById('yaja-total').classList.contains('active'))renderYajaTotalTable();
   }
-  else if(prefix==='seoksi-month'){seoksiMonth=m;buildNav('seoksi-month',m);renderSeoksiGrid();}
   else if(prefix==='sv-month'){
     svMonth=m;buildNav('sv-month',m);renderSvCal();
     if(document.getElementById('sv-count').classList.contains('active'))renderSvCountTable();
@@ -1948,7 +1909,6 @@ function setMonth(prefix,m){
 }
 function changeSchMonth(d){setMonth('sch-month',Math.min(12,Math.max(3,schMonth+d)));}
 function changeYajaMonth(d){setMonth('yaja-month',Math.min(12,Math.max(3,yajaMonth+d)));}
-function changeSeoksiMonth(d){setMonth('seoksi-month',Math.min(12,Math.max(3,seoksiMonth+d)));}
 function changeSvMonth(d){setMonth('sv-month',Math.min(12,Math.max(3,svMonth+d)));}
 
 // ══════════════════════════════════════════
@@ -2044,7 +2004,7 @@ function renderYajaGrid(){
       var student = CLASS_STUDENTS[c][idx];
       var applied = false;
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && isAfterAutoP8(c, student.num, k);
+        var autoP8 = student && (isAfterAutoP8(c, student.num, k) || isDormAutoP8(c, student.num, k, m));
         if((s[k] && s[k].p8) || autoP8){ totals.p8++; dowCounts[k].p8++; applied=true; }
         if(s[k] && s[k].y1){ totals.y1++; dowCounts[k].y1++; applied=true; }
         if(s[k] && s[k].y2){ totals.y2++; dowCounts[k].y2++; applied=true; }
@@ -2101,7 +2061,7 @@ function renderYajaGrid(){
     d.forEach(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       DOW_KEYS.forEach(function(k){
-        var autoP8 = student && isAfterAutoP8(cls, student.num, k);
+        var autoP8 = student && (isAfterAutoP8(cls, student.num, k) || isDormAutoP8(cls, student.num, k, m));
         if((s[k]&&s[k].p8)||autoP8) clsDowCounts[k].p8++;
         if(s[k]&&s[k].y1) clsDowCounts[k].y1++;
         if(s[k]&&s[k].y2) clsDowCounts[k].y2++;
@@ -2210,17 +2170,17 @@ function renderStudentTable(cls){
       + '<td><span class="num-cell">'+s.num+'</span>'+s.name+badge+'</td>'
       + '<td><div class="period-check p8-check">'
       + (isDorm
-          ? '<input type="checkbox" id="p8-'+i+'" disabled title="기숙사 학생은 야자 미참여"><label for="p8-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
+          ? '<input type="checkbox" id="p8-'+i+'" checked disabled title="기숙사 학생은 8교시가 자동 적용됩니다"><label for="p8-'+i+'" style="opacity:0.6;cursor:not-allowed;"></label>'
           : '<input type="checkbox" id="p8-'+i+'" '+p8c+' onchange="toggleYaja('+i+',&quot;p8&quot;,this.checked)"><label for="p8-'+i+'"></label>')
       + '</div></td>'
       + '<td><div class="period-check y1-check">'
       + (isDorm
-          ? '<input type="checkbox" id="y1-'+i+'" disabled title="기숙사 학생은 야자1 불가"><label for="y1-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
+          ? '<input type="checkbox" id="y1-'+i+'" disabled title="기숙사 학생은 기숙사에서 자습하므로 야자1 신청이 필요 없습니다"><label for="y1-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
           : '<input type="checkbox" id="y1-'+i+'" '+y1c+' onchange="toggleYaja('+i+',&quot;y1&quot;,this.checked)"><label for="y1-'+i+'"></label>')
       + '</div></td>'
       + '<td><div class="period-check y2-check">'
       + (isDorm
-          ? '<input type="checkbox" id="y2-'+i+'" disabled title="기숙사 학생은 야자2 불가"><label for="y2-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
+          ? '<input type="checkbox" id="y2-'+i+'" disabled title="기숙사 학생은 기숙사에서 자습하므로 야자2 신청이 필요 없습니다"><label for="y2-'+i+'" style="opacity:0.25;cursor:not-allowed;"></label>'
           : '<input type="checkbox" id="y2-'+i+'" '+y2c+' onchange="toggleYaja('+i+',&quot;y2&quot;,this.checked)"><label for="y2-'+i+'"></label>')
       + '</div></td>'
       + '</tr>';
@@ -2263,8 +2223,12 @@ function updateStudentSummary(){
     var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
     if(i<0) return;
     var d = (allData[i]&&allData[i][dow]) ? allData[i][dow] : {};
-    var autoP8 = isAfterAutoP8(cls, s.num, dow);
-    if(d.p8 || autoP8) p8++; if(d.y1) y1++; if(d.y2) y2++;
+    var isDorm = isDormStudent(cls, s.num);
+    var autoP8 = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow, yajaMonth);
+    if(d.p8 || autoP8) p8++;
+    // 기숙사 학생은 야자1·야자2 자동 제외
+    if(!isDorm && d.y1) y1++;
+    if(!isDorm && d.y2) y2++;
   });
   document.getElementById('student-summary').innerHTML=
     '<span class="count-badge" style="background:#ede9fe;color:#5b21b6">8교시 '+p8+'명</span>'
@@ -2453,7 +2417,7 @@ function renderYajaStatusTable() {
     var _dow = attendDateToDow(attendDate);
     CLASS_STUDENTS[cls].forEach(function(s, i) {
       var _d = yajaData[m][cls][i] && yajaData[m][cls][i][_dow];
-      if ((_d&&_d.p8) || isAfterAutoP8(cls,s.num,_dow)) tot.p8.a++;
+      if ((_d&&_d.p8) || isAfterAutoP8(cls,s.num,_dow) || isDormAutoP8(cls,s.num,_dow,m)) tot.p8.a++;
       if (_d&&_d.y1) tot.y1.a++;
       if (_d&&_d.y2) tot.y2.a++;
     });
@@ -2481,9 +2445,9 @@ function renderYajaStatusTable() {
     var yaja = yajaData[m][cls];
     var clsAtt = att[cls];
     var _attDow = attendDateToDow(attendDate);
-    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isAfterAutoP8(cls,s.num,_attDow); });
+    var hasAny = students.some(function(s,i){ var _d=yaja[i]&&yaja[i][_attDow]; return (_d&&(_d.p8||_d.y1||_d.y2))||isAfterAutoP8(cls,s.num,_attDow)||isDormAutoP8(cls,s.num,_attDow,m); });
     var cc = {
-      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isAfterAutoP8(cls,s.num,_attDow); }).length, ok: clsAtt.p8.filter(Boolean).length},
+      p8: {a: students.filter(function(s,i){ return (yaja[i]&&yaja[i][_attDow]&&yaja[i][_attDow].p8)||isAfterAutoP8(cls,s.num,_attDow)||isDormAutoP8(cls,s.num,_attDow,m); }).length, ok: clsAtt.p8.filter(Boolean).length},
       y1: {a: yaja.filter(function(s){ return s[_attDow]&&s[_attDow].y1; }).length, ok: clsAtt.y1.filter(Boolean).length},
       y2: {a: yaja.filter(function(s){return s[_attDow]&&s[_attDow].y2;}).length, ok: clsAtt.y2.filter(Boolean).length}
     };
@@ -2862,7 +2826,7 @@ function renderYajaTotalTable() {
       var _isDorm = isDormStudent(cls, s.num);
       dowList.forEach(function(d) {
         var entry = yajaData[m][cls][i] && yajaData[m][cls][i][d.key];
-        var _autoP8 = isAfterAutoP8(cls, s.num, d.key);
+        var _autoP8 = isAfterAutoP8(cls, s.num, d.key) || isDormAutoP8(cls, s.num, d.key, m);
         if ((entry && entry.p8) || _autoP8) clsTot[d.key].p8++;
         // 기숙사 학생은 야자1·야자2 모두 제외
         if (!_isDorm && entry && entry.y1) clsTot[d.key].y1++;
@@ -3012,154 +2976,6 @@ function getConfirmedCount(cls,rowIdx,period,row){
     else { if(d[period]&&att[cls]&&att[cls][period][i]) conf++; }
   });
   return conf;
-}
-
-// ══════════════════════════════════════════
-// 석식
-// ══════════════════════════════════════════
-function renderSeoksiGrid(){
-  var total = 0;
-  CLASSES.forEach(function(c){
-    getActiveStudents(c).forEach(function(s){
-      var i = CLASS_STUDENTS[c].findIndex(function(x){ return x.num===s.num&&x.name===s.name; });
-      if (i>=0 && isSeoksiApplied(c, i)) total++;
-    });
-  });
-  document.getElementById('seoksi-stats-row').innerHTML =
-    '<div class="stat-card"><div class="stat-num" style="color:var(--y1)">'+total+'</div><div class="stat-label">총 석식 신청(명)</div></div>'
-   +'<div class="stat-card"><div class="stat-num">'+CLASSES.length+'</div><div class="stat-label">전체 반 수</div></div>';
-
-  var grid = document.getElementById('seoksi-class-grid');
-  grid.innerHTML = '';
-  CLASSES.forEach(function(cls){
-    var active = getActiveStudents(cls);
-    var cnt = active.filter(function(s){
-      var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num&&x.name===s.name; });
-      return i>=0 && isSeoksiApplied(cls, i);
-    }).length;
-    var card = document.createElement('div');
-    card.className = 'class-card';
-    card.innerHTML = '<div class="class-num">'+cls+'</div>'
-      +'<div class="class-summary" style="font-size:11px;">신청 <b style="color:var(--y1)">'+cnt+'</b> / '+active.length+'명</div>';
-    card.onclick = (function(c){ return function(){ openSeoksiModal(c); }; })(cls);
-    grid.appendChild(card);
-  });
-}
-
-function openSeoksiModal(cls){
-  currentSeoksiDow = _initDow; // 모달 열 때 오늘 요일로 기본 선택
-  document.getElementById('seoksi-modal-title').textContent = cls+'반 석식 신청 — '+seoksiMonth+'월';
-  renderSeoksiStudentTable(cls);
-  document.getElementById('modal-seoksi').classList.add('open');
-}
-
-function buildSeoksiDowTabs(cls){
-  var el = document.getElementById('seoksi-dow-tabs');
-  if(!el) return;
-  el.innerHTML = '';
-  DOW_KEYS.forEach(function(k){
-    var btn = document.createElement('button');
-    btn.className = 'dow-tab' + (k === currentSeoksiDow ? ' active' : '');
-    btn.textContent = DOW_LABELS[k] + '요일';
-    btn.onclick = (function(dow, c){ return function(){ switchSeoksiDow(dow, c, btn); }; })(k, cls);
-    el.appendChild(btn);
-  });
-}
-
-function switchSeoksiDow(dow, cls, el){
-  currentSeoksiDow = dow;
-  document.querySelectorAll('#modal-seoksi .dow-tab').forEach(function(b){ b.classList.remove('active'); });
-  el.classList.add('active');
-  renderSeoksiStudentTable(cls);
-}
-
-function renderSeoksiStudentTable(cls){
-  var students = getActiveStudents(cls);
-  var tbody    = document.getElementById('seoksi-student-tbody');
-  tbody.innerHTML = '';
-
-  students.forEach(function(s){
-    var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
-    if(i<0) return;
-    var checked = isSeoksiApplied(cls, i);
-
-    var tr = document.createElement('tr');
-
-    var tdName = document.createElement('td');
-    var numSpan = document.createElement('span');
-    numSpan.className = 'num-cell';
-    numSpan.textContent = s.num;
-    tdName.appendChild(numSpan);
-    tdName.appendChild(document.createTextNode(s.name));
-    tr.appendChild(tdName);
-
-    var tdChk = document.createElement('td');
-    var wrap = document.createElement('div');
-    wrap.className = 'period-check y1-check';
-    var chkId = 'seoksi-' + i;
-    var inp = document.createElement('input');
-    inp.type = 'checkbox';
-    inp.id = chkId;
-    inp.checked = checked;
-    inp.onchange = (function(c, idx){ return function(){ toggleSeoksiAll(c, idx, this.checked); renderSeoksiStudentTable(c); }; })(cls, i);
-    var lbl = document.createElement('label');
-    lbl.htmlFor = chkId;
-    wrap.appendChild(inp);
-    wrap.appendChild(lbl);
-    tdChk.appendChild(wrap);
-    tr.appendChild(tdChk);
-    tbody.appendChild(tr);
-  });
-  updateSeoksiSummary(cls);
-}
-
-function isSeoksiApplied(cls, i) {
-  var d = seoksiData[seoksiMonth][cls][i];
-  if (!d) return false;
-  if (typeof d === 'boolean') return d;
-  return DOW_KEYS.some(function(k){ return d[k]; });
-}
-
-function exportSeoksiCsv() {
-  var rows = ['반,번호,이름'];
-  CLASSES.forEach(function(cls) {
-    getActiveStudents(cls).forEach(function(s) {
-      var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
-      if (i >= 0 && isSeoksiApplied(cls, i)) {
-        rows.push(cls.split('-')[1] + '반,' + s.num + ',' + s.name);
-      }
-    });
-  });
-  var blob = new Blob(['\uFEFF' + rows.join('\n')], {type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = seoksiMonth + '월_석식신청_명단.csv';
-  a.click();
-}
-
-// 석식 월 단위 토글: ON이면 전 요일 true, OFF면 전 요일 false
-function toggleSeoksiAll(cls, i, val) {
-  if (!seoksiData[seoksiMonth][cls][i] || typeof seoksiData[seoksiMonth][cls][i] !== 'object')
-    seoksiData[seoksiMonth][cls][i] = {};
-  DOW_KEYS.forEach(function(k){ seoksiData[seoksiMonth][cls][i][k] = val; });
-  updateSeoksiSummary(cls);
-  scheduleSave();
-}
-
-function toggleSeoksi(cls,i,val){
-  var dow = currentSeoksiDow;
-  if(!seoksiData[seoksiMonth][cls][i]) seoksiData[seoksiMonth][cls][i]={};
-  seoksiData[seoksiMonth][cls][i][dow]=val;
-  updateSeoksiSummary(cls);
-}
-function updateSeoksiSummary(cls){
-  var activeStudents = getActiveStudents(cls);
-  var cnt = activeStudents.filter(function(s){
-    var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
-    return i>=0 && isSeoksiApplied(cls, i);
-  }).length;
-  document.getElementById('seoksi-student-summary').innerHTML =
-    '<span class="count-badge" style="background:#dcfce7;color:#166534">석식 신청 '+cnt+'명</span>';
 }
 
 // ══════════════════════════════════════════
@@ -4135,7 +3951,7 @@ function pdfSub(tabName, subId) {
     save();
 
     function save() {
-      var nameMap = {supervisor:'감독표', yaja:'야자현황', roster:'학생명단', jumper:'점퍼사이즈', seoksi:'석식', schedule:'학사일정'};
+      var nameMap = {supervisor:'감독표', yaja:'야자현황', roster:'학생명단', jumper:'점퍼사이즈', schedule:'학사일정'};
       var fileName = (nameMap[tabName]||tabName) + (subId?'_'+subId:'') + '_' + new Date().toISOString().slice(0,10) + '.pdf';
       pdf.save(fileName);
       showToast('✅ PDF 다운로드 완료');
@@ -4836,7 +4652,7 @@ var _saveTimer = null, _isSaving = false, _pendingSave = false;
 
 function collectSaveData() {
   return JSON.stringify({
-    yajaData: yajaData, seoksiData: seoksiData, attendCheck: attendCheck, svData: svData,
+    yajaData: yajaData, attendCheck: attendCheck, svData: svData,
     svTeachersByMonth: svTeachersByMonth,
     svFridayTeachersByMonth: svFridayTeachersByMonth,
     studentRoster: studentRoster, scheduleData: scheduleData, jumperData: jumperData, appPeriod: appPeriod, volunteerData: volunteerData,
@@ -4888,9 +4704,12 @@ function renderYajaRoster() {
       var p8list=[], y1list=[], y2list=[];
       students.forEach(function(s, i) {
         var d = data[i] && data[i][dow] ? data[i][dow] : {p8:false,y1:false,y2:false};
-        if (d.p8) p8list.push(s.num+'  '+s.name);
-        if (d.y1) y1list.push(s.num+'  '+s.name);
-        if (d.y2) y2list.push(s.num+'  '+s.name);
+        var isDorm = isDormStudent(cls, s.num);
+        var autoP8 = isAfterAutoP8(cls, s.num, dow) || isDormAutoP8(cls, s.num, dow, yajaMonth);
+        if (d.p8 || autoP8) p8list.push(s.num+'  '+s.name+(isDorm?' (기숙사)':''));
+        // 기숙사 학생은 야자1·야자2 신청 목록에서 제외 (8교시만 자동 적용)
+        if (!isDorm && d.y1) y1list.push(s.num+'  '+s.name);
+        if (!isDorm && d.y2) y2list.push(s.num+'  '+s.name);
       });
       if (p8list.length || y1list.length || y2list.length) {
         dowRows.push({dow:dow, label:DOW_LABELS[dow], p8:p8list, y1:y1list, y2:y2list});
@@ -5000,7 +4819,7 @@ function pdfYajaRoster() {
 }
 
 // ══════════════════════════════════════════
-// 이전 달 복사 (야자 / 석식)
+// 이전 달 복사 (야자)
 // ══════════════════════════════════════════
 function copyPrevMonthYajaForClass(cls) {
   var prev = yajaMonth - 1;
@@ -5035,40 +4854,6 @@ function copyPrevMonthYajaForClass(cls) {
   showConfirmModal(cls + '반 이전 달 복사', msg + '<br><br>그래도 복사를 하시겠습니까?', doCopy);
 }
 
-function copyPrevMonthSeoksi() {
-  var prev = seoksiMonth - 1;
-  if (prev < 3) { showToast('⚠️ 3월이 첫 달입니다. 이전 달이 없습니다.'); return; }
-  if (!seoksiData[prev]) { showToast('⚠️ ' + prev + '월 데이터가 없습니다.'); return; }
-
-  var skipped = 0, copied = 0;
-  CLASSES.forEach(function(cls) {
-    var prevData = seoksiData[prev][cls];
-    var curData  = seoksiData[seoksiMonth][cls];
-    curData.forEach(function(_, i) {
-      var val = prevData[i];
-      if (val === undefined || val === null) return;
-      // 이번 달에 이미 신청 내용이 있는 학생은 건너뜀
-      var cur = curData[i];
-      var alreadyHas = cur && typeof cur === 'object'
-        ? DOW_KEYS.some(function(k) { return !!cur[k]; })
-        : !!cur;
-      if (alreadyHas) { skipped++; return; }
-      if (val && typeof val === 'object') {
-        curData[i] = {};
-        DOW_KEYS.forEach(function(dk) { curData[i][dk] = !!val[dk]; });
-      } else {
-        curData[i] = !!val;
-      }
-      copied++;
-    });
-  });
-
-  renderSeoksiGrid();
-  scheduleSave();
-  var msg = '✅ ' + prev + '월 → ' + seoksiMonth + '월 복사 완료 (' + copied + '명)';
-  if (skipped > 0) msg += '  |  이미 신청된 ' + skipped + '명은 유지';
-  showToast(msg);
-}
 // ══════════════════════════════════════════
 // 여름방학 자습
 // ══════════════════════════════════════════
@@ -5179,6 +4964,15 @@ function closeQrFullscreen() {
 
 function copySummerStudentUrl() {
   var url = location.origin + '/summer-student';
+  navigator.clipboard.writeText(url).then(function() {
+    showToast('✅ URL 복사 완료: ' + url);
+  }).catch(function() {
+    showToast('URL: ' + url);
+  });
+}
+
+function copyYajaStudentUrl() {
+  var url = location.origin + '/student';
   navigator.clipboard.writeText(url).then(function() {
     showToast('✅ URL 복사 완료: ' + url);
   }).catch(function() {
@@ -5524,15 +5318,10 @@ function doSave() {
   // 나머지 데이터를 Firebase 경로별 업데이트
   // Firebase 경로별 업데이트로 동시 편집 충돌 방지
   var updates = {};
-  // 야자/석식: 반별 경로로 저장 → 다른 반 편집과 충돌 없음
+  // 야자: 반별 경로로 저장 → 다른 반 편집과 충돌 없음
   Object.keys(d.yajaData || {}).forEach(function(m) {
     Object.keys(d.yajaData[m] || {}).forEach(function(cls) {
       updates['yajaData/' + m + '/' + cls] = d.yajaData[m][cls];
-    });
-  });
-  Object.keys(d.seoksiData || {}).forEach(function(m) {
-    Object.keys(d.seoksiData[m] || {}).forEach(function(cls) {
-      updates['seoksiData/' + m + '/' + cls] = d.seoksiData[m][cls];
     });
   });
   // 나머지 (관리자 단독): 전체 경로 업데이트
@@ -5562,278 +5351,6 @@ function showSaveStatus(msg, isErr) {
   el.textContent = msg; el.style.color = isErr ? '#dc2626' : '#16a34a';
   if (!isErr) setTimeout(function(){ el.textContent = ''; }, 3000);
 }
-
-// ── 석식 학급별 인쇄 모달 열기 ──
-function openSeoksiPrintModal() {
-  var html = '';
-  CLASSES.forEach(function(cls) {
-    var btn = document.createElement('button');
-    btn.className = 'btn btn-outline';
-    btn.style.cssText = 'font-size:13px;font-weight:800;padding:10px 4px;border-radius:8px;';
-    btn.textContent = cls + '반';
-    btn.addEventListener('click', (function(c){ return function(){ printSeoksiDetail(c); closeModal('modal-seoksi-print'); }; })(cls));
-    html += btn.outerHTML;
-  });
-  document.getElementById('seoksi-print-cls-grid').innerHTML = html;
-  // innerHTML로 넣으면 이벤트 사라지므로 직접 할당
-  var grid = document.getElementById('seoksi-print-cls-grid');
-  grid.innerHTML = '';
-  CLASSES.forEach(function(cls) {
-    var btn = document.createElement('button');
-    btn.className = 'btn btn-outline';
-    btn.style.cssText = 'font-size:13px;font-weight:800;padding:10px 4px;border-radius:8px;';
-    btn.textContent = cls + '반';
-    btn.onclick = (function(c){ return function(){ printSeoksiDetail(c); closeModal('modal-seoksi-print'); }; })(cls);
-    grid.appendChild(btn);
-  });
-  openModal('modal-seoksi-print');
-}
-
-// ── 석식 반별 명단 인쇄 (학급별 서명 포함) ──
-function getStudentId(cls, num) {
-  // cls: '1-3', num: 5 → 1305
-  var classNum = parseInt(cls.split('-')[1]);
-  return '1' + String(classNum).padStart(1,'0') + String(num).padStart(2,'0');
-}
-
-function printSeoksiDetail(targetCls, printDow) {
-  var m = seoksiMonth;
-  var printClasses = targetCls ? [targetCls] : CLASSES;
-
-  var css = `
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Noto Sans KR',sans-serif; background:#fff; -webkit-print-color-adjust:exact; color-adjust:exact; }
-
-    .page {
-      width:210mm;
-      height:297mm;
-      padding:10mm 12mm 10mm;
-      page-break-after:always;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-    }
-    .page:last-child { page-break-after:auto; }
-
-    /* 문서 헤더 */
-    .doc-header {
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
-      border-bottom:2.5px solid #1e3a5f;
-      padding-bottom:5px;
-      margin-bottom:6px;
-    }
-    .doc-school { font-size:9px; color:#888; margin-bottom:1px; }
-    .doc-title  { font-size:18px; font-weight:900; color:#1e3a5f; letter-spacing:-0.5px; }
-    .doc-date   { font-size:9px; color:#aaa; }
-
-    /* 학급 정보 바 */
-    .info-bar {
-      display:flex;
-      border:1.5px solid #1e3a5f;
-      border-radius:6px;
-      overflow:hidden;
-      margin-bottom:6px;
-    }
-    .info-cell {
-      flex:1; padding:5px 8px;
-      border-right:1px solid #c7d7f0;
-      background:#f0f5ff;
-    }
-    .info-cell:last-child { border-right:none; }
-    .info-cell-label { font-size:8px; color:#888; font-weight:700; margin-bottom:1px; }
-    .info-cell-value { font-size:13px; font-weight:900; color:#1e3a5f; }
-    .info-cell-value.green { color:#16a34a; }
-    .info-cell-value.red   { color:#dc2626; }
-
-    /* 두 컬럼 레이아웃 */
-    .two-col {
-      display:flex;
-      gap:8px;
-      flex:1;
-      min-height:0;
-    }
-    .col-block { flex:1; display:flex; flex-direction:column; }
-    .col-title {
-      font-size:9px; font-weight:900; letter-spacing:.3px;
-      padding:4px 8px; border-radius:4px 4px 0 0;
-    }
-    .col-title.navy { background:#1e3a5f; color:#fff; }
-    .col-title.gray { background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; border-bottom:none; }
-
-    /* 테이블 */
-    table { width:100%; border-collapse:collapse; }
-    thead th {
-      font-size:9px; font-weight:700; padding:4px 5px; text-align:center;
-      border:1px solid #1e3a5f;
-    }
-    .navy-head th { background:#1e3a5f; color:#fff; }
-    .gray-head th { background:#f1f5f9; color:#64748b; border-color:#e2e8f0; }
-    tbody td {
-      border:1px solid #d1d5db;
-      padding:4px 5px;
-      font-size:10px;
-      vertical-align:middle;
-      line-height:1.2;
-    }
-    tbody tr:nth-child(even) td { background:#f8fafc; }
-    .td-snum { text-align:center; width:38px; font-weight:700; font-size:10px; font-family:monospace; }
-    .td-name { font-weight:700; padding-left:6px; }
-    .td-sign { width:46px; text-align:center; color:#cbd5e1; font-size:8px; }
-    .td-none-snum { text-align:center; width:38px; color:#94a3b8; font-size:10px; font-family:monospace; }
-    .td-none-name { color:#94a3b8; padding-left:6px; font-size:10px; }
-
-    /* 담임 서명 */
-    .sign-box {
-      margin-top:6px;
-      border:1.5px solid #1e3a5f;
-      border-radius:6px;
-      padding:7px 14px;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-shrink:0;
-    }
-    .sign-label { font-size:10px; font-weight:900; color:#1e3a5f; white-space:nowrap; }
-    .sign-name  { font-size:11px; font-weight:700; color:#475569; white-space:nowrap; }
-    .sign-line  { flex:1; border-bottom:1px solid #94a3b8; height:22px; }
-    .sign-date  { font-size:9px; color:#94a3b8; white-space:nowrap; }
-
-    @media print {
-      @page { size:A4 portrait; margin:0; }
-      body  { margin:0; }
-      .page { padding:9mm 11mm 9mm; }
-    }
-  `;
-
-  var bodyHtml = '';
-
-  printClasses.forEach(function(cls) {
-    var active    = getActiveStudents(cls);
-    var data      = seoksiData[m][cls];
-    var teacher   = (typeof TEACHERS !== 'undefined' && TEACHERS[cls]) ? TEACHERS[cls] : '';
-    var classNum  = parseInt(cls.split('-')[1]);
-
-    // printDow: 특정 요일('mon'~'fri') 또는 null(전체 합산)
-    var _dow = printDow || null;
-    var applied = [], notApplied = [];
-    active.forEach(function(s) {
-      var i = CLASS_STUDENTS[cls].findIndex(function(x){ return x.num===s.num && x.name===s.name; });
-      var isApplied = (i >= 0) && isSeoksiApplied(cls, i);
-      if (isApplied) applied.push(s);
-      else notApplied.push(s);
-    });
-
-    // 신청자 행 (학번 + 이름 + 서명)
-    var appliedRows = '';
-    if (!applied.length) {
-      appliedRows = '<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:12px;font-size:10px;">석식 신청 학생 없음</td></tr>';
-    } else {
-      applied.forEach(function(s) {
-        var sid = '1' + classNum + String(s.num).padStart(2,'0');
-        appliedRows += '<tr>'
-          + '<td class="td-snum">' + sid + '</td>'
-          + '<td class="td-name">' + s.name + '</td>'
-          + '<td class="td-sign">서명</td>'
-          + '</tr>';
-      });
-    }
-
-    // 미신청자 행 (학번 + 이름, 회색)
-    var notRows = '';
-    notApplied.forEach(function(s) {
-      var sid = '1' + classNum + String(s.num).padStart(2,'0');
-      notRows += '<tr>'
-        + '<td class="td-none-snum">' + sid + '</td>'
-        + '<td class="td-none-name">' + s.name + '</td>'
-        + '</tr>';
-    });
-
-    bodyHtml += `
-    <div class="page">
-      <div class="doc-header">
-        <div>
-          <div class="doc-school">경남고등학교 · 1학년 ${cls}반</div>
-          <div class="doc-title">${m}월 석식 신청 명단</div>
-        </div>
-        <div class="doc-date">출력일: ${new Date().toLocaleDateString('ko-KR')}</div>
-      </div>
-
-      <div class="info-bar">
-        <div class="info-cell">
-          <div class="info-cell-label">학급</div>
-          <div class="info-cell-value">${cls}반</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-cell-label">담임</div>
-          <div class="info-cell-value">${teacher}</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-cell-label">재학생</div>
-          <div class="info-cell-value">${active.length}명</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-cell-label">석식 신청</div>
-          <div class="info-cell-value green">${applied.length}명</div>
-        </div>
-        <div class="info-cell">
-          <div class="info-cell-label">미신청</div>
-          <div class="info-cell-value red">${notApplied.length}명</div>
-        </div>
-      </div>
-
-      <div class="two-col">
-        <!-- 신청자 -->
-        <div class="col-block">
-          <div class="col-title navy">✅ 석식 신청 — ${applied.length}명</div>
-          <table>
-            <thead class="navy-head">
-              <tr>
-                <th style="width:42px;">학번</th>
-                <th style="text-align:left;padding-left:6px;">이름</th>
-                <th style="width:46px;">서명</th>
-              </tr>
-            </thead>
-            <tbody>${appliedRows}</tbody>
-          </table>
-        </div>
-        <!-- 미신청자 -->
-        ${notApplied.length ? `
-        <div class="col-block">
-          <div class="col-title gray">— 미신청 — ${notApplied.length}명</div>
-          <table>
-            <thead class="gray-head">
-              <tr>
-                <th style="width:42px;">학번</th>
-                <th style="text-align:left;padding-left:6px;">이름</th>
-              </tr>
-            </thead>
-            <tbody>${notRows}</tbody>
-          </table>
-        </div>` : '<div class="col-block"></div>'}
-      </div>
-
-      <div class="sign-box">
-        <span class="sign-label">담임 확인</span>
-        <span class="sign-name">${teacher}</span>
-        <div class="sign-line"></div>
-        <span class="sign-date">${new Date().getFullYear()}년 &nbsp;${m}월 &nbsp;___일</span>
-      </div>
-    </div>`;
-  });
-
-  var w = window.open('', '_blank', 'width=820,height=1060');
-  w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
-    + '<title>석식 신청 명단 ' + m + '월<\/title>'
-    + '<style>' + css + '<\/style>'
-    + '<\/head><body>' + bodyHtml + '<\/body><\/html>');
-  w.document.close();
-  w.focus();
-  setTimeout(function(){ w.print(); }, 700);
-}
-
 
 // ── 야자 날짜 이동 ──
 function moveAttendDate(dir) {
@@ -5879,7 +5396,6 @@ function migrateFromGAS(overlay) {
     // GAS 데이터를 Firebase에 저장
     var updates = {};
     if (r.yajaData) updates['yajaData'] = r.yajaData;
-    if (r.seoksiData) updates['seoksiData'] = r.seoksiData;
     if (r.attendCheck) updates['attendCheck'] = r.attendCheck;
     if (r.svData) updates['svData'] = r.svData;
     if (r.svTeachersByMonth) updates['svTeachersByMonth'] = r.svTeachersByMonth;
@@ -5957,23 +5473,6 @@ function loadFromSheet() {
                 var d = studentDow[dow];
                 yajaData[m][cls][i][dow] = {p8:!!d.p8, y1:!!d.y1, y2:!!d.y2};
               });
-            });
-          });
-        });
-        // 석식 신청 (요일별 구조)
-        Object.keys(r.seoksiData||{}).forEach(function(m) {
-          Object.keys(r.seoksiData[m]).forEach(function(cls) {
-            Object.keys(r.seoksiData[m][cls]).forEach(function(idx) {
-              if (!seoksiData[m]||!seoksiData[m][cls]) return;
-              var i = Number(idx);
-              if (seoksiData[m][cls][i] === undefined) return;
-              var val = r.seoksiData[m][cls][idx];
-              // val이 객체(요일별)이면 그대로, boolean이면 구버전 호환
-              if (val && typeof val === 'object') {
-                seoksiData[m][cls][i] = val;
-              } else {
-                seoksiData[m][cls][i] = !!val;
-              }
             });
           });
         });
@@ -6113,7 +5612,7 @@ function loadFromSheet() {
           scheduleData = r.scheduleData.map(function(s){
             return {date:fixDateStr(s.date), title:String(s.title||''), type:String(s.type||''), target:String(s.target||'')};
           });
-        renderYajaGrid(); renderSeoksiGrid(); renderSvCal(); renderSchCal(); renderRosterTable();
+        renderYajaGrid(); renderSvCal(); renderSchCal(); renderRosterTable();
         if(document.getElementById('tab-volunteer').classList.contains('active')) renderVolunteerTab();
         if(document.getElementById('yaja-roster').classList.contains('active')) renderYajaRoster();
         if(document.getElementById('tab-jumper').classList.contains('active')) renderJumperTable();
@@ -6137,15 +5636,6 @@ function loadFromSheet() {
       if(yajaData[yajaMonth]&&yajaData[yajaMonth][cls]&&yajaData[yajaMonth][cls][i]) {
         fbSaveYajaOne(yajaMonth, cls, i, dow, yajaData[yajaMonth][cls][i][dow]);
       }
-      scheduleSave();
-    }; }],
-    // toggleSeoksi: 학생별-요일별 즉시 저장
-    ['toggleSeoksi', function(fn){ return function(c,i,v){
-      fn(c,i,v);
-      var dow=currentSeoksiDow;
-      var val = seoksiData[seoksiMonth]&&seoksiData[seoksiMonth][c]&&seoksiData[seoksiMonth][c][i]
-                ? seoksiData[seoksiMonth][c][i][dow] : false;
-      fbSaveSeoksiOne(seoksiMonth, c, i, dow, val||false);
       scheduleSave();
     }; }],
     // toggleChk: 내부에서 fbSaveAttendOne 직접 호출 (scheduleSave 불필요) — arguments 전체 전달 필수
@@ -6174,18 +5664,6 @@ window.addEventListener('load', function() {
 
 </script>
 
-<!-- 석식 학급별 인쇄 선택 모달 -->
-<div class="modal-overlay" id="modal-seoksi-print">
-  <div class="modal" style="max-width:360px;">
-    <div class="modal-title">🖨 학급 선택 — 석식 명단 인쇄</div>
-    <p style="font-size:12px;color:var(--g400);margin-bottom:12px;">인쇄할 학급을 선택하거나 전체를 인쇄하세요.</p>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
-      <button class="btn btn-outline" style="grid-column:span 4;font-size:13px;font-weight:800;padding:10px;" onclick="printSeoksiDetail(null);closeModal('modal-seoksi-print')">📋 전체 인쇄 (7개 반)</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;" id="seoksi-print-cls-grid"></div>
-    <button class="btn btn-outline" onclick="closeModal('modal-seoksi-print')">닫기</button>
-  </div>
-</div>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {

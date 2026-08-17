@@ -16,7 +16,6 @@ var FIREBASE_CONFIG = {
 // Firebase 데이터 구조
 // /1학년앱/
 //   yajaData/{month}/{cls}/{studentIdx}/{dow}/{p8|y1|y2}
-//   seoksiData/{month}/{cls}/{studentIdx}/{dow}
 //   attendCheck/{month}/{dateStr}/{cls}/{p8|y1|y2}/{studentIdx}
 //   absentReasons/{month}/{dateStr}/{key}
 //   svData/{month}/{key}/{name|isFri|skip|...}
@@ -56,7 +55,7 @@ function fbLoadAll(callback) {
 }
 
 // ── 일반 데이터 저장 (출석/불참사유 제외) ──
-// updates: { 'yajaData': ..., 'seoksiData': ..., ... }
+// updates: { 'yajaData': ..., ... }
 function fbSaveData(updates) {
   return fbRef('').update(updates);
 }
@@ -82,11 +81,6 @@ function fbSaveAbsentReason(month, dateStr, key, reason) {
 // ── 야자 신청 단건 저장 (학생별-요일별) ──
 function fbSaveYajaOne(month, cls, idx, dow, val) {
   return fbRef('yajaData/' + month + '/' + cls + '/' + idx + '/' + dow).set(val);
-}
-
-// ── 석식 신청 단건 저장 ──
-function fbSaveSeoksiOne(month, cls, idx, dow, val) {
-  return fbRef('seoksiData/' + month + '/' + cls + '/' + idx + '/' + dow).set(val);
 }
 
 // ── 감독표 단건 저장 ──
