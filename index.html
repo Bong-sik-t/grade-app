@@ -1037,6 +1037,17 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
     </label>
     <div id="afterschool-status" style="margin-top:12px;font-size:12px;color:#64748b;min-height:18px;"></div>
   </div>
+
+  <!-- 현재 방과후 신청 명단 관리 -->
+  <div style="background:#fff;border-radius:12px;border:1.5px solid #e2e8f0;padding:24px;max-width:480px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div style="font-size:15px;font-weight:900;color:#1e3a5f;">📋 현재 방과후 신청 명단</div>
+      <button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#fecaca;" onclick="deleteAllAfterSchool()">🗑 전체 삭제</button>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">학생별로 개별 삭제하거나, 새 학기 신청을 다시 받을 때 전체 삭제 후 새 파일을 업로드하세요.</p>
+    <div id="afterschool-list-count" style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;"></div>
+    <div id="afterschool-list" style="display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;"></div>
+  </div>
 </div>
 
 
@@ -4426,6 +4437,7 @@ function renderSettingsTab() {
   document.getElementById('setting-summer-start').value = summerAppPeriod.start || '';
   document.getElementById('setting-summer-end').value   = summerAppPeriod.end   || '';
   updateSummerPeriodStatus();
+  renderAfterSchoolList();
 }
 
 function updateSummerPeriodStatus() {
@@ -4619,6 +4631,8 @@ function uploadAfterSchoolFile(input) {
       statusEl.style.color = '#16a34a';
       statusEl.textContent = '✅ 총 ' + totalCount + '건 방과후 데이터 로드 완료 (월:' + newLists.mon.length + ' 화:' + newLists.tue.length + ' 수:' + newLists.wed.length + ' 목:' + newLists.thu.length + ' 금:' + newLists.fri.length + ')';
       renderYajaGrid();
+      renderAfterSchoolList();
+      scheduleSave();
     } catch(err) {
       statusEl.style.color = '#dc2626';
       statusEl.textContent = '❌ 오류: ' + err.message;
@@ -4626,6 +4640,70 @@ function uploadAfterSchoolFile(input) {
   };
   reader.readAsArrayBuffer(file);
   input.value = '';
+}
+
+// ── 현재 방과후 신청 명단 관리 (개별 삭제 / 전체 삭제) ──
+var AFTER_SCHOOL_DOW_LABEL = {mon:'월',tue:'화',wed:'수',thu:'목',fri:'금'};
+
+function renderAfterSchoolList() {
+  var listEl = document.getElementById('afterschool-list');
+  var countEl = document.getElementById('afterschool-list-count');
+  if (!listEl) return;
+
+  // 학생별로 요일 모으기: { 'cls-num': {cls, num, name, dows:[...]} }
+  var byStudent = {};
+  DOW_KEYS.forEach(function(dow) {
+    (afterSchoolMap[dow] || new Set()).forEach(function(key) {
+      if (!byStudent[key]) {
+        var parts = key.split('-'); // ['1','3','12'] → cls '1-3', num 12
+        var cls = parts[0] + '-' + parts[1];
+        var num = Number(parts[2]);
+        var stu = (CLASS_STUDENTS[cls] || []).find(function(s){ return s.num === num; });
+        byStudent[key] = {cls: cls, num: num, name: stu ? stu.name : '(명단에 없음)', dows: []};
+      }
+      byStudent[key].dows.push(dow);
+    });
+  });
+
+  var students = Object.keys(byStudent).map(function(k){ return byStudent[k]; });
+  students.sort(function(a,b){ return a.cls===b.cls ? a.num-b.num : (a.cls<b.cls?-1:1); });
+
+  countEl.textContent = '총 ' + students.length + '명';
+
+  if (!students.length) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">방과후 신청 학생이 없습니다.</div>';
+    return;
+  }
+
+  listEl.innerHTML = students.map(function(s) {
+    var dowBadges = s.dows.map(function(d){ return AFTER_SCHOOL_DOW_LABEL[d]; }).join('·');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:12.5px;">'
+      + '<span style="color:#94a3b8;min-width:44px;">' + s.cls + '반</span>'
+      + '<span style="font-weight:700;flex:1;">' + s.num + '번 ' + s.name + '</span>'
+      + '<span style="color:#854d0e;background:#fef9c3;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">' + dowBadges + '</span>'
+      + '<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;color:#dc2626;" onclick="deleteAfterSchoolStudent(\'' + s.cls + '\',' + s.num + ')">삭제</button>'
+      + '</div>';
+  }).join('');
+}
+
+function deleteAfterSchoolStudent(cls, num) {
+  var key = cls + '-' + num;
+  DOW_KEYS.forEach(function(dow) {
+    if (afterSchoolMap[dow]) afterSchoolMap[dow].delete(key);
+  });
+  renderAfterSchoolList();
+  renderYajaGrid();
+  scheduleSave();
+  showToast('🗑 ' + cls + '반 ' + num + '번 방과후 명단에서 삭제 완료');
+}
+
+function deleteAllAfterSchool() {
+  if (!confirm('현재 방과후 신청 명단을 전체 삭제하시겠습니까?\n(새로 신청 파일을 업로드하기 전까지 방과후 학생이 없는 상태가 됩니다)')) return;
+  DOW_KEYS.forEach(function(dow) { afterSchoolMap[dow] = new Set(); });
+  renderAfterSchoolList();
+  renderYajaGrid();
+  scheduleSave();
+  showToast('🗑 방과후 신청 명단 전체 삭제 완료');
 }
 
 // GAS 연동
@@ -4650,6 +4728,13 @@ function callApi(action, args) {
 
 var _saveTimer = null, _isSaving = false, _pendingSave = false;
 
+// afterSchoolMap: {dow: Set(keys)} ↔ Firebase 저장용 {dow: [keys]}
+function serializeAfterSchoolMap() {
+  var out = {};
+  DOW_KEYS.forEach(function(k){ out[k] = Array.from(afterSchoolMap[k] || []); });
+  return out;
+}
+
 function collectSaveData() {
   return JSON.stringify({
     yajaData: yajaData, attendCheck: attendCheck, svData: svData,
@@ -4660,7 +4745,8 @@ function collectSaveData() {
     absentReasons: absentReasons,
     dormExceptions: dormExceptions,
     afterSchoolExceptions: afterSchoolExceptions,
-    afterSchoolP8Off: afterSchoolP8Off
+    afterSchoolP8Off: afterSchoolP8Off,
+    afterSchoolMap: serializeAfterSchoolMap()
   });
 }
 
@@ -5337,6 +5423,7 @@ function doSave() {
   updates['dormExceptions']          = d.dormExceptions;
   updates['afterSchoolExceptions']   = d.afterSchoolExceptions;
   updates['afterSchoolP8Off']        = d.afterSchoolP8Off;
+  updates['afterSchoolMap']          = d.afterSchoolMap;
   fbRef('').update(updates)
     .then(function() {
       _isSaving = false;
@@ -5599,6 +5686,12 @@ function loadFromSheet() {
         // 방과후 예외 복원
         if (r.afterSchoolExceptions) afterSchoolExceptions = r.afterSchoolExceptions;
         if (r.afterSchoolP8Off) afterSchoolP8Off = r.afterSchoolP8Off;
+        // 방과후 신청 명단 복원 (Firebase에 저장된 적 없으면 기본값 유지)
+        if (r.afterSchoolMap) {
+          var newAfterSchoolMap = {};
+          DOW_KEYS.forEach(function(k){ newAfterSchoolMap[k] = new Set(r.afterSchoolMap[k] || []); });
+          afterSchoolMap = newAfterSchoolMap;
+        }
         // 신청 기간 복원
         if (r.appPeriod) {
           appPeriod = {start: r.appPeriod.start||'', end: r.appPeriod.end||''};
