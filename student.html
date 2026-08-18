@@ -366,11 +366,18 @@ DOW_KEYS.forEach(function(k){ selDow[k] = {yaja: 'none'}; });
 
 // 기숙사 학생 명단: {cls: [num, ...]}
 var dormStudents = {};
+// 전출·자퇴 등 비활성 학생 선택 목록에서 숨기기 위한 참조 (index.html과 배열 인덱스를
+// 반드시 동일하게 유지해야 하므로, CLASS_STUDENTS 자체에서는 절대 제거하지 않는다)
+var currentRoster = [];
 function isDormStudent(cls, num) {
   return (dormStudents[cls] || []).indexOf(Number(num)) !== -1;
 }
 
 // 학생 명단을 studentRoster 기준으로 CLASS_STUDENTS 동기화
+// 주의: index.html의 동기화 로직과 반드시 동일해야 한다(추가만 하고 절대 제거하지 않음).
+// 여기서 배열 인덱스가 하나라도 달라지면, 학생이 이 페이지로 신청한 내용이
+// index.html에서 보는 배열의 "다른 학생 자리"에 저장되어 버린다.
+// 전출·자퇴 등 비활성 학생은 CLASS_STUDENTS에서 빼지 않고, 선택 목록(selectCls)에서만 숨긴다.
 var STATUS_ACTIVE_SET = new Set(['active','transfer_in']);
 function syncRosterToClassStudents(studentRoster) {
   if (!studentRoster || !studentRoster.length) return;
@@ -381,15 +388,6 @@ function syncRosterToClassStudents(studentRoster) {
       CLASS_STUDENTS[s.cls].push({ num: s.num, name: s.name });
       CLASS_STUDENTS[s.cls].sort(function(a,b){ return a.num-b.num; });
     }
-  });
-  // 전출·자퇴 등 비활성 학생 제거
-  CLASSES.forEach(function(cls) {
-    CLASS_STUDENTS[cls] = CLASS_STUDENTS[cls].filter(function(x) {
-      var entry = studentRoster.find(function(s){ return s.cls===cls&&s.num===x.num&&s.name===x.name; });
-      // studentRoster에 없으면 원래 명단(원적 학생) → 유지
-      // studentRoster에 있는데 비활성이면 제거
-      return !entry || STATUS_ACTIVE_SET.has(entry.status);
-    });
   });
 }
 
@@ -417,6 +415,7 @@ window.addEventListener('load', function() {
     if (rosterRaw) {
       roster = Array.isArray(rosterRaw) ? rosterRaw : Object.values(rosterRaw);
     }
+    currentRoster = roster;
     if (roster.length) syncRosterToClassStudents(roster);
 
     // 신청 기간 판단 (start/end 모두 비어있으면 항상 열림)
@@ -486,6 +485,9 @@ function selectCls(cls) {
   var card = document.getElementById('student-card');
   card.style.display = 'block';
   document.getElementById('student-list').innerHTML = students.map(function(s, i) {
+    // 전출·자퇴 등 비활성 학생은 선택 목록에서만 숨김 — CLASS_STUDENTS 인덱스(i)는 절대 건드리지 않는다
+    var entry = currentRoster.find(function(r){ return r.cls===cls && r.num===s.num && r.name===s.name; });
+    if (entry && !STATUS_ACTIVE_SET.has(entry.status)) return '';
     return '<div class="student-item" onclick="selectStudent('+i+')" id="stu-'+i+'">'
       + '<span class="student-num">'+s.num+'</span>'
       + '<span class="student-name">'+s.name+'</span>'
