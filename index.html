@@ -5589,7 +5589,10 @@ function loadFromSheet() {
               var studentDow = r.yajaData[m][cls][idx]; // {mon:{p8,y1,y2}, tue:...}
               if (!yajaData[m]||!yajaData[m][cls]) return;
               var i = Number(idx);
-              if (yajaData[m][cls][i] === undefined) return;
+              // 주의: 로컬 배열이 아직 이 인덱스만큼 안 늘어났어도(전입생 등으로 CLASS_STUDENTS
+              // 동기화가 이 시점 이후에 일어나는 경우) 여기서 건너뛰면 Firebase에 저장된 실제
+              // 신청 데이터가 화면에 반영되지 않는다. 배열 인덱스에 직접 대입하면 JS가
+              // 알아서 늘려주므로 그냥 대입한다.
               if (!yajaData[m][cls][i] || typeof yajaData[m][cls][i] !== 'object')
                 yajaData[m][cls][i] = {};
               Object.keys(studentDow).forEach(function(dow) {
