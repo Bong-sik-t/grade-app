@@ -4650,19 +4650,27 @@ function renderAfterSchoolList() {
   var countEl = document.getElementById('afterschool-list-count');
   if (!listEl) return;
 
-  // 학생별로 요일 모으기: { 'cls-num': {cls, num, name, dows:[...]} }
-  var byStudent = {};
+  // 후보 학생 키 수집: 대량 업로드 명단(afterSchoolMap) + 개별 예외 추가(afterSchoolExceptions에 true가 있는 경우)
+  var candidateKeys = {};
   DOW_KEYS.forEach(function(dow) {
-    (afterSchoolMap[dow] || new Set()).forEach(function(key) {
-      if (!byStudent[key]) {
-        var parts = key.split('-'); // ['1','3','12'] → cls '1-3', num 12
-        var cls = parts[0] + '-' + parts[1];
-        var num = Number(parts[2]);
-        var stu = (CLASS_STUDENTS[cls] || []).find(function(s){ return s.num === num; });
-        byStudent[key] = {cls: cls, num: num, name: stu ? stu.name : '(명단에 없음)', dows: []};
-      }
-      byStudent[key].dows.push(dow);
+    (afterSchoolMap[dow] || new Set()).forEach(function(key) { candidateKeys[key] = true; });
+  });
+  Object.keys(afterSchoolExceptions).forEach(function(cls) {
+    Object.keys(afterSchoolExceptions[cls]).forEach(function(num) {
+      candidateKeys[cls + '-' + num] = true;
     });
+  });
+
+  // 실제 방과후 여부는 hasAfterSchool()로 판단 (예외 우선 반영)
+  var byStudent = {};
+  Object.keys(candidateKeys).forEach(function(key) {
+    var lastDash = key.lastIndexOf('-');
+    var cls = key.slice(0, lastDash);
+    var num = Number(key.slice(lastDash + 1));
+    var dows = DOW_KEYS.filter(function(dow){ return hasAfterSchool(cls, num, dow); });
+    if (!dows.length) return;
+    var stu = (CLASS_STUDENTS[cls] || []).find(function(s){ return s.num === num; });
+    byStudent[key] = {cls: cls, num: num, name: stu ? stu.name : '(명단에 없음)', dows: dows};
   });
 
   var students = Object.keys(byStudent).map(function(k){ return byStudent[k]; });
@@ -4688,9 +4696,13 @@ function renderAfterSchoolList() {
 
 function deleteAfterSchoolStudent(cls, num) {
   var key = cls + '-' + num;
+  // 대량 업로드 명단에서 제거
   DOW_KEYS.forEach(function(dow) {
     if (afterSchoolMap[dow]) afterSchoolMap[dow].delete(key);
   });
+  // 학생별 개별 예외(+방과후 배지로 추가한 기록)도 함께 제거 — 이게 없으면 명단을 지워도 계속 나타남
+  if (afterSchoolExceptions[cls]) delete afterSchoolExceptions[cls][num];
+  if (afterSchoolP8Off[cls]) delete afterSchoolP8Off[cls][num];
   renderAfterSchoolList();
   renderYajaGrid();
   scheduleSave();
@@ -4698,8 +4710,10 @@ function deleteAfterSchoolStudent(cls, num) {
 }
 
 function deleteAllAfterSchool() {
-  if (!confirm('현재 방과후 신청 명단을 전체 삭제하시겠습니까?\n(새로 신청 파일을 업로드하기 전까지 방과후 학생이 없는 상태가 됩니다)')) return;
+  if (!confirm('현재 방과후 신청 명단을 전체 삭제하시겠습니까?\n(개별로 추가한 예외 기록도 함께 지워지며, 새로 신청 파일을 업로드하기 전까지 방과후 학생이 없는 상태가 됩니다)')) return;
   DOW_KEYS.forEach(function(dow) { afterSchoolMap[dow] = new Set(); });
+  afterSchoolExceptions = {};
+  afterSchoolP8Off = {};
   renderAfterSchoolList();
   renderYajaGrid();
   scheduleSave();
