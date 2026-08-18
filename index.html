@@ -1628,7 +1628,20 @@ function _removeStudentFromClass(cls, num, name) {
     });
   });
 }
+
+// 반별 yajaData 즉시 저장 (반/번호가 바뀌어 배열 인덱스가 통째로 밀리는 작업 직후 호출)
 // ─────────────────────────────────────────────────────
+// doSave()의 일반 저장 경로는 더 이상 yajaData를 통째로 쓰지 않는다 — 학생이 student.html에서
+// 신청한 직후, 교사 화면이 그 변경을 모르는 채로 아무 저장이나 트리거하면 방금 신청한 내용이
+// 옛 스냅샷으로 덮어써져 사라지는 문제가 있었다. yajaData는 실제로 배열 구조가 바뀌는 지점
+// (학생 추가/삭제/반이동, 이전 달 복사, 기숙사 업로드)에서만 해당 반만 즉시 저장한다.
+function saveYajaClassBulk(cls) {
+  var updates = {};
+  MONTHS.forEach(function(m) {
+    if (yajaData[m] && yajaData[m][cls]) updates['yajaData/' + m + '/' + cls] = yajaData[m][cls];
+  });
+  fbRef('').update(updates).catch(function(e){ showToast('❌ 저장 실패: ' + e.message); });
+}
 
 // 학생 관리 (전입·전출·자퇴·유예)
 // ══════════════════════════════════════════
@@ -1770,6 +1783,7 @@ function confirmAddStudent() {
   studentRoster.push({ id, cls, num, name, status: type, note });
 
   _addStudentToClass(cls, num, name);
+  saveYajaClassBulk(cls);
 
   closeModal('modal-add-student');
   renderRosterTable();
@@ -1825,6 +1839,8 @@ function confirmChangeStatus() {
     if (clsChanged) { s.cls = newCls; s.id = newCls + '-' + s.num + '-' + Date.now(); }
     if (numChanged) s.num = newNum;
     _addStudentToClass(s.cls, s.num, s.name);
+    saveYajaClassBulk(oldCls);
+    if (clsChanged) saveYajaClassBulk(s.cls);
   }
 
   // 기숙사 여부 반영 (반/번호가 바뀐 경우 기존 위치에서 제거 후 새 위치에 반영)
@@ -1845,6 +1861,7 @@ function confirmDeleteStudent() {
   studentRoster = studentRoster.filter(function(x){ return x.id!==editStudentId; });
   _removeStudentFromClass(s.cls, s.num, s.name);
   setDormStudent(s.cls, s.num, false);
+  saveYajaClassBulk(s.cls);
 
   closeModal('modal-change-status');
   renderRosterTable();
@@ -4573,6 +4590,7 @@ function uploadDormFile(input) {
       }
       dormStudents = newDorm;
       // 기숙사 학생 야자2 자동 초기화
+      var touchedClasses = {};
       Object.keys(dormStudents).forEach(function(cls) {
         (dormStudents[cls] || []).forEach(function(num) {
           var i = CLASS_STUDENTS[cls] ? CLASS_STUDENTS[cls].findIndex(function(s){ return s.num === num; }) : -1;
@@ -4583,6 +4601,7 @@ function uploadDormFile(input) {
               if (yajaData[m][cls][i][dow]) yajaData[m][cls][i][dow].y2 = false;
             });
           });
+          touchedClasses[cls] = true;
         });
       });
       statusEl.style.color = '#16a34a';
@@ -4590,6 +4609,7 @@ function uploadDormFile(input) {
       renderYajaGrid();
       renderYajaStatusTable();
       scheduleSave();
+      Object.keys(touchedClasses).forEach(function(cls){ saveYajaClassBulk(cls); });
     } catch(err) {
       statusEl.style.color = '#dc2626';
       statusEl.textContent = '❌ 오류: ' + err.message;
@@ -4946,7 +4966,7 @@ function copyPrevMonthYajaForClass(cls) {
       copied++;
     });
     renderYajaGrid();
-    scheduleSave();
+    saveYajaClassBulk(cls);
     showToast('✅ ' + prev + '월 → ' + yajaMonth + '월 ' + cls + '반 복사 완료 (' + copied + '명)');
   }
 
@@ -5419,12 +5439,10 @@ function doSave() {
   // 나머지 데이터를 Firebase 경로별 업데이트
   // Firebase 경로별 업데이트로 동시 편집 충돌 방지
   var updates = {};
-  // 야자: 반별 경로로 저장 → 다른 반 편집과 충돌 없음
-  Object.keys(d.yajaData || {}).forEach(function(m) {
-    Object.keys(d.yajaData[m] || {}).forEach(function(cls) {
-      updates['yajaData/' + m + '/' + cls] = d.yajaData[m][cls];
-    });
-  });
+  // 주의: yajaData는 여기서 통째로 쓰지 않는다. toggleYaja는 fbSaveYajaOne로 셀 단위 즉시 저장하고,
+  // 배열 구조가 바뀌는 지점(학생 추가/삭제/반이동, 이전 달 복사, 기숙사 업로드)은 saveYajaClassBulk()로
+  // 그 반만 즉시 저장한다. 여기서 전체를 덮어쓰면, 학생이 student.html로 막 신청한 직후 이 저장이
+  // 걸릴 경우 교사 화면의 옛 스냅샷으로 방금 신청한 내용을 지워버리는 문제가 있었다.
   // 나머지 (관리자 단독): 전체 경로 업데이트
   updates['svData']                  = d.svData;
   updates['svTeachersByMonth']       = d.svTeachersByMonth;
