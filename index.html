@@ -4746,7 +4746,8 @@ function collectSaveData() {
     dormExceptions: dormExceptions,
     afterSchoolExceptions: afterSchoolExceptions,
     afterSchoolP8Off: afterSchoolP8Off,
-    afterSchoolMap: serializeAfterSchoolMap()
+    afterSchoolMap: serializeAfterSchoolMap(),
+    afterSchoolMapInitialized: true
   });
 }
 
@@ -5423,7 +5424,10 @@ function doSave() {
   updates['dormExceptions']          = d.dormExceptions;
   updates['afterSchoolExceptions']   = d.afterSchoolExceptions;
   updates['afterSchoolP8Off']        = d.afterSchoolP8Off;
+  // 요일별 배열이 전부 비면 Firebase가 afterSchoolMap 자체를 지워버리므로,
+  // 별도의 initialized 플래그로 "저장된 적 없음"과 "의도적으로 비움"을 구분한다.
   updates['afterSchoolMap']          = d.afterSchoolMap;
+  updates['afterSchoolMapInitialized'] = d.afterSchoolMapInitialized;
   fbRef('').update(updates)
     .then(function() {
       _isSaving = false;
@@ -5686,10 +5690,13 @@ function loadFromSheet() {
         // 방과후 예외 복원
         if (r.afterSchoolExceptions) afterSchoolExceptions = r.afterSchoolExceptions;
         if (r.afterSchoolP8Off) afterSchoolP8Off = r.afterSchoolP8Off;
-        // 방과후 신청 명단 복원 (Firebase에 저장된 적 없으면 기본값 유지)
-        if (r.afterSchoolMap) {
+        // 방과후 신청 명단 복원
+        // 요일별 배열이 전부 비면 Firebase가 afterSchoolMap 자체를 삭제하므로
+        // afterSchoolMapInitialized 플래그로 "한 번이라도 저장됨"을 판단한다.
+        // (r.afterSchoolMap이 없어도 initialized가 true면 "의도적으로 전부 삭제된 상태"이므로 빈 명단으로 반영)
+        if (r.afterSchoolMapInitialized) {
           var newAfterSchoolMap = {};
-          DOW_KEYS.forEach(function(k){ newAfterSchoolMap[k] = new Set(r.afterSchoolMap[k] || []); });
+          DOW_KEYS.forEach(function(k){ newAfterSchoolMap[k] = new Set((r.afterSchoolMap && r.afterSchoolMap[k]) || []); });
           afterSchoolMap = newAfterSchoolMap;
         }
         // 신청 기간 복원
