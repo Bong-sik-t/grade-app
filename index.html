@@ -1031,10 +1031,13 @@ main{padding:28px;max-width:1200px;margin:0 auto;}
       <b>파일 형식:</b> 시트명=수업명, 2행 1열=요일(월/화/수/목/금 시작), 5행부터 학생 데이터<br>
       (3열=반번호, 4열=학생번호, 5열=이름)
     </div>
-    <label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0;">
-      📤 방과후 파일 업로드
-      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="uploadAfterSchoolFile(this)">
-    </label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-outline btn-sm" onclick="downloadAfterSchoolTemplate()">📥 예시 양식 다운로드</button>
+      <label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0;">
+        📤 방과후 파일 업로드
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="uploadAfterSchoolFile(this)">
+      </label>
+    </div>
     <div id="afterschool-status" style="margin-top:12px;font-size:12px;color:#64748b;min-height:18px;"></div>
   </div>
 
@@ -4617,6 +4620,35 @@ function uploadDormFile(input) {
   };
   reader.readAsArrayBuffer(file);
   input.value = '';
+}
+
+function downloadAfterSchoolTemplate() {
+  var wb = XLSX.utils.book_new();
+
+  var ws1 = XLSX.utils.aoa_to_sheet([
+    ['방과후 수업명: 영어회화'],
+    ['월요일'],
+    ['연번', '', '반', '번호', '이름'],
+    [],
+    [1, '', 1, 23, '홍길동'],
+    [2, '', 2, 5, '김철수'],
+    [3, '', 3, 11, '이영희']
+  ]);
+  ws1['!cols'] = [{wch:8},{wch:4},{wch:8},{wch:8},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws1, '영어회화');
+
+  var ws2 = XLSX.utils.aoa_to_sheet([
+    ['방과후 수업명: 수학특강'],
+    ['화요일'],
+    ['연번', '', '반', '번호', '이름'],
+    [],
+    [1, '', 1, 7, '박민수'],
+    [2, '', 4, 19, '최지우']
+  ]);
+  ws2['!cols'] = [{wch:8},{wch:4},{wch:8},{wch:8},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, '수학특강');
+
+  XLSX.writeFile(wb, '방과후_수업_예시양식.xlsx');
 }
 
 function uploadAfterSchoolFile(input) {
