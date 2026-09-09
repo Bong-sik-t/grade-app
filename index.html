@@ -2027,8 +2027,8 @@ function renderYajaGrid(){
   // ── 중복 제외 신청자 수 (한 명이 여러 요일 신청해도 1명) ──
   var uniqueApplied = 0;
   // ── 요일×교시 전체 인원 ──
-  var dowCounts = {}; // {mon:{p8:0,y1:0,y2:0}, ...}
-  DOW_KEYS.forEach(function(k){ dowCounts[k] = {p8:0,y1:0,y2:0}; });
+  var dowCounts = {}; // {mon:{p8:0,y1:0,y2:0,as:0}, ...} (as = 방과후로 8교시 자동 적용된 인원)
+  DOW_KEYS.forEach(function(k){ dowCounts[k] = {p8:0,y1:0,y2:0,as:0}; });
 
   CLASSES.forEach(function(c){
     yajaData[m][c].forEach(function(s, idx){
@@ -2039,6 +2039,7 @@ function renderYajaGrid(){
         if((s[k] && s[k].p8) || autoP8){ totals.p8++; dowCounts[k].p8++; applied=true; }
         if(s[k] && s[k].y1){ totals.y1++; dowCounts[k].y1++; applied=true; }
         if(s[k] && s[k].y2){ totals.y2++; dowCounts[k].y2++; applied=true; }
+        if(student && hasAfterSchool(c, student.num, k)){ dowCounts[k].as++; }
       });
       if(applied) uniqueApplied++;
     });
@@ -2075,6 +2076,21 @@ function renderYajaGrid(){
     });
     tbl += '<td style="padding:8px 10px;text-align:center;font-weight:800;color:var(--navy);">'+rowTotal+'</td>';
     tbl += '</tr>';
+
+    if (p.key === 'p8') {
+      // 8교시 중 방과후 수업으로 채워진 인원 서브행
+      var asRowTotal = 0;
+      tbl += '<tr style="border-bottom:1px solid #e8ecf4;">';
+      tbl += '<td style="padding:6px 14px 6px 26px;font-weight:700;font-size:12px;border-right:1px solid #dde3ee;background:#fffdf5;color:#854d0e;">└ 방과후</td>';
+      DOW_KEYS.forEach(function(k){
+        var n = dowCounts[k].as;
+        asRowTotal += n;
+        var isToday = (k === _initDow && _todayDowIdx >= 1 && _todayDowIdx <= 5);
+        tbl += '<td style="padding:6px 10px;text-align:center;border-right:1px solid #dde3ee;font-size:12px;font-weight:'+(n>0?'700':'400')+';color:'+(n>0?'#854d0e':'#cbd5e1')+';'+(isToday?'background:#fffbeb;':'background:#fffdf5;')+'">'+n+'</td>';
+      });
+      tbl += '<td style="padding:6px 10px;text-align:center;font-size:12px;font-weight:700;color:#854d0e;background:#fffdf5;">'+asRowTotal+'</td>';
+      tbl += '</tr>';
+    }
   });
   tbl += '</tbody></table>';
   var dowDiv = document.getElementById('yaja-dow-summary');
@@ -2088,7 +2104,7 @@ function renderYajaGrid(){
     var d = yajaData[m][cls];
     // 학급별 요일×교시 인원
     var clsDowCounts = {};
-    DOW_KEYS.forEach(function(k){ clsDowCounts[k] = {p8:0,y1:0,y2:0}; });
+    DOW_KEYS.forEach(function(k){ clsDowCounts[k] = {p8:0,y1:0,y2:0,as:0}; });
     d.forEach(function(s, idx){
       var student = CLASS_STUDENTS[cls][idx];
       DOW_KEYS.forEach(function(k){
@@ -2096,6 +2112,7 @@ function renderYajaGrid(){
         if((s[k]&&s[k].p8)||autoP8) clsDowCounts[k].p8++;
         if(s[k]&&s[k].y1) clsDowCounts[k].y1++;
         if(s[k]&&s[k].y2) clsDowCounts[k].y2++;
+        if(student && hasAfterSchool(cls, student.num, k)) clsDowCounts[k].as++;
       });
     });
     // 학급 총 신청자 (중복제외)
@@ -2130,6 +2147,17 @@ function renderYajaGrid(){
         miniTbl += '<td style="padding:3px 4px;border:1px solid #e2e8f0;text-align:center;font-weight:'+(n>0?'800':'400')+';color:'+(n>0?p.color:'#cbd5e1')+';">'+n+'</td>';
       });
       miniTbl += '</tr>';
+
+      if (p.key === 'p8') {
+        // 8교시 중 방과후 수업으로 채워진 인원 서브행
+        miniTbl += '<tr>';
+        miniTbl += '<td style="padding:2px 4px;border:1px solid #e2e8f0;background:#fffdf5;color:#854d0e;font-weight:700;text-align:center;font-size:9px;">└방과후</td>';
+        DOW_KEYS.forEach(function(k){
+          var n = clsDowCounts[k].as;
+          miniTbl += '<td style="padding:2px 4px;border:1px solid #e2e8f0;background:#fffdf5;text-align:center;font-weight:'+(n>0?'800':'400')+';font-size:10px;color:'+(n>0?'#854d0e':'#cbd5e1')+';">'+n+'</td>';
+        });
+        miniTbl += '</tr>';
+      }
     });
     miniTbl += '</table>';
 
