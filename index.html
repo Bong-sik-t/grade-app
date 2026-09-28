@@ -3269,6 +3269,14 @@ function generateSvCalendar(){
   scheduleSave();
 
   var dates = getWeekdayDates(2026, svMonth);
+  // 수동으로 "야자 없음" 처리한 날짜는 재생성 후에도 유지
+  var manualSkips = {};
+  if (svData[svMonth]) {
+    Object.keys(svData[svMonth]).forEach(function(k){
+      var sv = svData[svMonth][k];
+      if (sv && sv.manual) manualSkips[k] = sv;
+    });
+  }
   svData[svMonth] = {};
   var skippedCount = 0;
 
@@ -3321,6 +3329,10 @@ function generateSvCalendar(){
     var ds  = '2026-'+String(svMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     if (isSkipDate(ds)) {
       svData[svMonth][key] = {name:'', isFri:dow===5, skip:true, skipReason:getSkipReason(ds)};
+      skippedCount++; return;
+    }
+    if (manualSkips[key]) {
+      svData[svMonth][key] = manualSkips[key];
       skippedCount++; return;
     }
     var isFri = dow === 5;
